@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "MediaDrop/src/server.js": {
+      "maxDuration": 60,
+      "includeFiles": "MediaDrop/public/**"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/MediaDrop/src/server.js"
+    }
+  ]
+}
