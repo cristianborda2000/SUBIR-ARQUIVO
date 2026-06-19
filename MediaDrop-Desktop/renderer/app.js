@@ -21,7 +21,8 @@ let state = {
   youtube: [],
   categories: [],
   files: {},
-  config: {}
+  config: {},
+  warnings: []
 };
 
 function setStatus(message, type = "") {
@@ -81,6 +82,13 @@ function currentItems() {
   return state.active === "youtube" ? state.youtube : (state.files[state.active] || []);
 }
 
+function warningForActiveTab() {
+  if (state.active === "youtube") {
+    return state.warnings.find((warning) => warning.includes("YouTube"));
+  }
+  return state.warnings.find((warning) => warning.includes("Arquivos do site"));
+}
+
 function render() {
   renderTabs();
   const items = currentItems();
@@ -104,6 +112,11 @@ function render() {
   });
   head.append(titleWrap, zipButton);
   filesContainer.appendChild(head);
+
+  const warning = warningForActiveTab();
+  if (warning) {
+    filesContainer.appendChild(textElement("p", "empty warning-text", warning));
+  }
 
   if (!items.length) {
     filesContainer.appendChild(textElement("p", "empty", state.active === "youtube" ? "Nenhum link pendente encontrado." : "Nenhum arquivo enviado nesta categoria."));
@@ -174,9 +187,10 @@ async function loadState() {
     state.categories = data.categories || [];
     state.files = data.files || {};
     state.config = data.config || {};
+    state.warnings = data.warnings || [];
     if (!tabItems().find((item) => item.key === state.active)) state.active = "youtube";
     render();
-    setStatus("Atualizado.", "success");
+    setStatus(state.warnings.length ? state.warnings.join(" | ") : "Atualizado.", state.warnings.length ? "" : "success");
   } catch (error) {
     renderTabs();
     filesContainer.innerHTML = "";
@@ -241,7 +255,7 @@ settingsForm.addEventListener("submit", async (event) => {
     const current = await window.mediaDrop.getConfig();
     const saved = await window.mediaDrop.saveConfig({
       supabaseUrl: fields.supabaseUrl.value,
-      supabaseServiceRoleKey: fields.supabaseServiceRoleKey.value || (current.hasSupabaseKey ? undefined : ""),
+      supabaseServiceRoleKey: fields.supabaseServiceRoleKey.value.replace(/\s+/g, "") || (current.hasSupabaseKey ? undefined : ""),
       mediaDropUrl: fields.mediaDropUrl.value,
       adminUser: fields.adminUser.value,
       adminPassword: fields.adminPassword.value || (current.hasAdminPassword ? undefined : ""),
@@ -275,6 +289,7 @@ document.querySelector("#chooseFolderButton").addEventListener("click", async ()
   const folder = await window.mediaDrop.chooseFolder();
   if (folder) fields.downloadFolder.value = folder;
 });
+document.querySelector("#openConfigFolderButton").addEventListener("click", () => window.mediaDrop.openConfigFolder());
 document.querySelector("#openFolderButton").addEventListener("click", () => window.mediaDrop.openFolder());
 document.querySelector("#openWebButton").addEventListener("click", () => window.mediaDrop.openAdminWeb());
 

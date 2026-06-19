@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld("mediaDrop", {
   saveConfig: (config) => ipcRenderer.invoke("config:save", config),
   chooseFolder: () => ipcRenderer.invoke("folder:choose"),
   openFolder: () => ipcRenderer.invoke("folder:open"),
+  openConfigFolder: () => ipcRenderer.invoke("config:openFolder"),
   loadState: () => ipcRenderer.invoke("state:load"),
   downloadYoutube: (id) => ipcRenderer.invoke("youtube:download", id),
   downloadAllYoutube: () => ipcRenderer.invoke("youtube:downloadAll"),

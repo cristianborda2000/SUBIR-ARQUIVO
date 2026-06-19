@@ -53,7 +53,8 @@
           <label for="supabaseUrl">Supabase URL</label>
           <input id="supabaseUrl" type="url" placeholder="https://seu-projeto.supabase.co">
           <label for="supabaseServiceRoleKey">Supabase Secret Key</label>
-          <input id="supabaseServiceRoleKey" type="password" placeholder="Cole a secret key">
+          <textarea id="supabaseServiceRoleKey" rows="3" placeholder="Cole a secret key. Pode colar mesmo se vier quebrada em duas linhas."></textarea>
+          <p class="field-help">Use a chave que comeca com sb_secret. O app remove espacos e quebras de linha ao salvar.</p>
           <label for="mediaDropUrl">URL do MediaDrop</label>
           <input id="mediaDropUrl" type="url" placeholder="https://subir-arquivo.vercel.app">
           <label for="adminUser">Usuario admin</label>
@@ -73,6 +74,7 @@
           </label>
           <div class="actions">
             <button class="button" type="submit">Salvar</button>
+            <button id="openConfigFolderButton" class="button secondary" type="button">Abrir config</button>
             <span id="settingsStatus" class="status"></span>
           </div>
         </form>

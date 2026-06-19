@@ -43,11 +43,12 @@ function readConfig() {
 
 function saveConfig(config) {
   const current = readConfig();
+  const secretKey = String(config.supabaseServiceRoleKey ?? current.supabaseServiceRoleKey ?? "").replace(/\s+/g, "");
   const next = {
     ...current,
     ...config,
     supabaseUrl: String(config.supabaseUrl ?? current.supabaseUrl ?? "").trim(),
-    supabaseServiceRoleKey: String(config.supabaseServiceRoleKey ?? current.supabaseServiceRoleKey ?? "").trim(),
+    supabaseServiceRoleKey: secretKey,
     mediaDropUrl: String(config.mediaDropUrl ?? current.mediaDropUrl ?? "").trim().replace(/\/admin\/?$/, "").replace(/\/$/, ""),
     adminUser: String(config.adminUser ?? current.adminUser ?? "").trim(),
     adminPassword: String(config.adminPassword ?? current.adminPassword ?? ""),
@@ -70,13 +71,24 @@ function safeConfig(config) {
   };
 }
 
-function requireConfig(config) {
+function requireSupabaseConfig(config) {
   if (!config.supabaseUrl || !config.supabaseServiceRoleKey) {
     throw new Error("Configure Supabase URL e Secret Key na engrenagem.");
   }
+}
+
+function requireMediaDropConfig(config) {
   if (!config.mediaDropUrl || !config.adminUser || !config.adminPassword) {
     throw new Error("Configure URL do MediaDrop, usuario e senha admin na engrenagem.");
   }
+}
+
+function hasSupabaseConfig(config) {
+  return Boolean(config.supabaseUrl && config.supabaseServiceRoleKey);
+}
+
+function hasMediaDropConfig(config) {
+  return Boolean(config.mediaDropUrl && config.adminUser && config.adminPassword);
 }
 
 function sanitizeName(value) {
@@ -124,6 +136,7 @@ function requestBuffer(urlValue, options = {}) {
 }
 
 async function supabaseRequest(config, resource, options = {}) {
+  requireSupabaseConfig(config);
   const body = options.body || "";
   const url = `${config.supabaseUrl.replace(/\/$/, "")}/rest/v1/${resource}`;
   const response = await requestBuffer(url, {
@@ -169,6 +182,7 @@ async function deleteYoutubeLink(config, id) {
 }
 
 async function mediaDropLogin(config) {
+  requireMediaDropConfig(config);
   const response = await requestBuffer(`${config.mediaDropUrl}/api/admin/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -250,6 +264,7 @@ function runYtDlp(config, link) {
 }
 
 async function downloadYoutube(config, id) {
+  requireSupabaseConfig(config);
   const links = await listYoutubeLinks(config);
   const link = links.find((item) => String(item.id) === String(id));
   if (!link) throw new Error("Link nao encontrado ou ja baixado.");
@@ -296,6 +311,11 @@ function createWindow() {
 
 ipcMain.handle("config:get", () => publicConfig());
 ipcMain.handle("config:save", (_event, config) => saveConfig(config));
+ipcMain.handle("config:openFolder", async () => {
+  fs.mkdirSync(path.dirname(configPath()), { recursive: true });
+  await shell.openPath(path.dirname(configPath()));
+  return { ok: true };
+});
 ipcMain.handle("folder:choose", async () => {
   const result = await dialog.showOpenDialog({ properties: ["openDirectory", "createDirectory"] });
   return result.canceled ? null : result.filePaths[0];
@@ -313,15 +333,39 @@ ipcMain.handle("admin:openWeb", async () => {
 });
 ipcMain.handle("state:load", async () => {
   const config = readConfig();
-  requireConfig(config);
-  const youtube = await listYoutubeLinks(config);
-  const data = await mediaDropJson(config, "/api/admin/files");
-  return { youtube, categories: data.categories || [], files: data.files || {}, config: publicConfig() };
+  const warnings = [];
+  let youtube = [];
+  let categories = [];
+  let files = {};
+
+  if (hasSupabaseConfig(config)) {
+    try {
+      youtube = await listYoutubeLinks(config);
+    } catch (error) {
+      warnings.push(`YouTube: ${error.message}`);
+    }
+  } else {
+    warnings.push("YouTube desativado: configure Supabase URL e Secret Key para ver links.");
+  }
+
+  if (hasMediaDropConfig(config)) {
+    const data = await mediaDropJson(config, "/api/admin/files");
+    categories = data.categories || [];
+    files = data.files || {};
+  } else {
+    warnings.push("Arquivos do site desativados: configure URL do MediaDrop, usuario e senha admin.");
+  }
+
+  if (!hasSupabaseConfig(config) && !hasMediaDropConfig(config)) {
+    throw new Error("Configure pelo menos os dados do MediaDrop na engrenagem.");
+  }
+
+  return { youtube, categories, files, warnings, config: publicConfig() };
 });
 ipcMain.handle("youtube:download", async (_event, id) => downloadYoutube(readConfig(), id));
 ipcMain.handle("youtube:downloadAll", async () => {
   const config = readConfig();
-  requireConfig(config);
+  requireSupabaseConfig(config);
   const links = await listYoutubeLinks(config);
   let downloaded = 0;
   let errors = 0;
@@ -341,25 +385,25 @@ ipcMain.handle("youtube:delete", async (_event, id) => {
 });
 ipcMain.handle("file:download", async (_event, file) => {
   const config = readConfig();
-  requireConfig(config);
+  requireMediaDropConfig(config);
   const savedPath = await mediaDropDownload(config, `/api/admin/files/${file.id}/download`, file.originalName, file.category || "arquivos");
   return { ok: true, path: savedPath, message: "Arquivo baixado." };
 });
 ipcMain.handle("category:download", async (_event, category) => {
   const config = readConfig();
-  requireConfig(config);
+  requireMediaDropConfig(config);
   const savedPath = await mediaDropDownload(config, `/api/admin/download/category/${category}`, `mediadrop-${category}.zip`, "zips");
   return { ok: true, path: savedPath, message: "ZIP baixado." };
 });
 ipcMain.handle("files:downloadAll", async () => {
   const config = readConfig();
-  requireConfig(config);
+  requireMediaDropConfig(config);
   const savedPath = await mediaDropDownload(config, "/api/admin/download/all", "mediadrop-todos-arquivos.zip", "zips");
   return { ok: true, path: savedPath, message: "ZIP com todos os arquivos baixado." };
 });
 ipcMain.handle("file:delete", async (_event, id) => {
   const config = readConfig();
-  requireConfig(config);
+  requireMediaDropConfig(config);
   const cookie = await mediaDropLogin(config);
   const response = await requestBuffer(`${config.mediaDropUrl}/api/admin/files/${id}`, { method: "DELETE", headers: { Cookie: cookie } });
   if (response.statusCode < 200 || response.statusCode >= 300) throw new Error(response.text() || "Nao foi possivel apagar.");
@@ -367,7 +411,7 @@ ipcMain.handle("file:delete", async (_event, id) => {
 });
 ipcMain.handle("all:delete", async () => {
   const config = readConfig();
-  requireConfig(config);
+  requireMediaDropConfig(config);
   const cookie = await mediaDropLogin(config);
   const response = await requestBuffer(`${config.mediaDropUrl}/api/admin/files`, { method: "DELETE", headers: { Cookie: cookie } });
   if (response.statusCode < 200 || response.statusCode >= 300) throw new Error(response.text() || "Nao foi possivel apagar tudo.");
