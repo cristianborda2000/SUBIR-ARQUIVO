@@ -68,6 +68,10 @@ async function getYoutubeTitle(url) {
 }
 
 async function downloadYoutubeVideo(url, displayName) {
+  if (process.env.VERCEL) {
+    throw new Error("Download do YouTube nao esta disponivel na Vercel. Use o MediaDrop local ou hospede em VPS/Render/Railway com yt-dlp instalado.");
+  }
+
   if (!isYoutubeUrl(url)) {
     throw new Error("Informe um link valido do YouTube.");
   }
