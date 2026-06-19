@@ -106,6 +106,9 @@ function renderFiles() {
     row.className = "file-row";
     const nameBlock = document.createElement("div");
     nameBlock.appendChild(textElement("div", "file-name", file.originalName));
+    if (file.source === "youtube") {
+      nameBlock.appendChild(textElement("div", "file-note", file.url));
+    }
     if (file.note) {
       nameBlock.appendChild(textElement("div", "file-note", file.note));
     }
@@ -120,15 +123,28 @@ function renderFiles() {
     const actions = document.createElement("div");
     actions.className = "row-actions";
 
-    const download = document.createElement("a");
-    download.className = "button small secondary";
-    download.href = `/api/admin/files/${file.id}/download`;
-    download.textContent = "Baixar";
+    let download;
+    if (file.source === "youtube") {
+      download = document.createElement("button");
+      download.className = "button small secondary";
+      download.type = "button";
+      download.dataset.youtubeDownload = file.id;
+      download.textContent = "Baixar YouTube";
+    } else {
+      download = document.createElement("a");
+      download.className = "button small secondary";
+      download.href = `/api/admin/files/${file.id}/download`;
+      download.textContent = "Baixar";
+    }
 
     const remove = document.createElement("button");
     remove.className = "button small danger";
     remove.type = "button";
-    remove.dataset.delete = file.id;
+    if (file.source === "youtube") {
+      remove.dataset.youtubeDelete = file.id;
+    } else {
+      remove.dataset.delete = file.id;
+    }
     remove.textContent = "Apagar";
 
     actions.append(download, remove);
@@ -176,6 +192,43 @@ logoutButton.addEventListener("click", async () => {
 });
 
 filesContainer.addEventListener("click", async (event) => {
+  const youtubeDownload = event.target.closest("[data-youtube-download]");
+  if (youtubeDownload) {
+    const id = youtubeDownload.getAttribute("data-youtube-download");
+    const ok = window.confirm("Baixar este video do YouTube agora neste computador?");
+    if (!ok) return;
+
+    youtubeDownload.disabled = true;
+    youtubeDownload.textContent = "Baixando...";
+    try {
+      const response = await api(`/api/admin/youtube/${id}/download`, { method: "POST" });
+      window.alert(response.message || "Video baixado.");
+      await loadFiles();
+    } catch (error) {
+      window.alert(error.message);
+      youtubeDownload.disabled = false;
+      youtubeDownload.textContent = "Baixar YouTube";
+    }
+    return;
+  }
+
+  const youtubeDelete = event.target.closest("[data-youtube-delete]");
+  if (youtubeDelete) {
+    const id = youtubeDelete.getAttribute("data-youtube-delete");
+    const ok = window.confirm("Apagar este link do YouTube?");
+    if (!ok) return;
+
+    youtubeDelete.disabled = true;
+    try {
+      await api(`/api/admin/youtube/${id}`, { method: "DELETE" });
+      await loadFiles();
+    } catch (error) {
+      window.alert(error.message);
+      youtubeDelete.disabled = false;
+    }
+    return;
+  }
+
   const button = event.target.closest("[data-delete]");
   if (!button) return;
 

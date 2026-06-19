@@ -9,7 +9,7 @@ MediaDrop e um sistema web independente para receber arquivos pelo navegador e o
 - Campo opcional de observacao por envio
 - Barra de progresso no navegador
 - Conversao automatica de videos para MP4
-- Upload de video por link do YouTube com salvamento em MP4
+- Envio de link do YouTube para o admin baixar depois em MP4
 - Edicao do nome final dos arquivos antes do envio
 - Organizacao automatica em `uploads/fotos`, `uploads/videos`, `uploads/audios`, `uploads/documentos` e `uploads/outros`
 - Painel administrativo com login e senha
@@ -174,7 +174,9 @@ Enquanto a conversao acontece, o upload pode demorar um pouco mais em arquivos g
 
 ## Videos do YouTube
 
-Para baixar links do YouTube, instale o `yt-dlp` no computador/servidor que esta rodando o MediaDrop. Depois cole um link por linha no campo de YouTube. O sistema aceita ate 10 links por envio e baixa um de cada vez para reduzir travamentos.
+O envio publico apenas registra o link e o titulo do YouTube. O video nao e baixado nesse momento.
+
+No painel admin, os links aparecem na categoria Videos como pendentes. Ao clicar em **Baixar YouTube**, o computador/servidor que esta rodando o MediaDrop baixa o video usando `yt-dlp` e salva em MP4.
 
 Instale o `yt-dlp` no PATH do sistema ou coloque o executavel em:
 

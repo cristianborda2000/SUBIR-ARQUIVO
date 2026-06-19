@@ -61,6 +61,18 @@ async function main() {
       throw new Error(`Upload falhou: ${upload.status} ${await upload.text()}`);
     }
 
+    const youtubeForm = new FormData();
+    youtubeForm.append("youtubeUrl", "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    youtubeForm.append("youtubeTitle", "YouTube pendente");
+
+    const youtubeUpload = await fetch(`${baseUrl}/api/upload`, {
+      method: "POST",
+      body: youtubeForm
+    });
+    if (!youtubeUpload.ok) {
+      throw new Error(`Envio de link YouTube falhou: ${youtubeUpload.status} ${await youtubeUpload.text()}`);
+    }
+
     const login = await fetch(`${baseUrl}/api/admin/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -82,6 +94,11 @@ async function main() {
     const found = body.files.documentos.some((file) => file.originalName === "arquivo-renomeado.txt");
     if (!found) {
       throw new Error("Arquivo de teste nao apareceu na categoria documentos.");
+    }
+
+    const youtubeFound = body.files.videos.some((file) => file.source === "youtube" && file.originalName === "YouTube pendente");
+    if (!youtubeFound) {
+      throw new Error("Link de YouTube nao apareceu como pendente na categoria videos.");
     }
 
     console.log("Smoke test OK: upload, login e listagem funcionando.");

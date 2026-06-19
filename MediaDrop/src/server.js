@@ -11,7 +11,7 @@ const config = require("./config");
 const { initDb } = require("./db");
 const { categories, getCategory, sanitizeFilename, upload, withExtension } = require("./storage");
 const { convertToMp4, isMp4File, mp4NameFrom, normalizeVideoFile } = require("./video");
-const { downloadYoutubeVideo } = require("./youtube");
+const { downloadYoutubeVideo, isYoutubeUrl } = require("./youtube");
 
 const app = express();
 let db;
@@ -115,6 +115,21 @@ function parseYoutubeUrls(body) {
     .map((url) => url.trim())
     .filter(Boolean)
     .slice(0, 10);
+}
+
+function publicYoutubeLink(link) {
+  return {
+    id: link.id,
+    source: "youtube",
+    originalName: link.title,
+    storedName: "",
+    category: "videos",
+    mimeType: "YouTube pendente",
+    size: 0,
+    note: link.note,
+    uploadedAt: link.created_at,
+    url: link.url
+  };
 }
 
 function displayNameForFile(file, displayNames, index) {
@@ -235,10 +250,10 @@ app.post("/api/upload", (req, res) => {
 
     const note = String(req.body.note || "").trim().slice(0, 1000);
     const displayNames = parseDisplayNames(req.body.displayNames);
-    const youtubeUrls = parseYoutubeUrls(req.body);
+    const youtubeUrl = String(req.body.youtubeUrl || "").trim();
+    const youtubeTitle = String(req.body.youtubeTitle || "").trim().slice(0, 120);
     const uploadedAt = new Date().toISOString();
     const saved = [];
-    const downloaded = [];
 
     try {
       for (const [index, uploadedFile] of (req.files || []).entries()) {
@@ -251,18 +266,32 @@ app.post("/api/upload", (req, res) => {
         saved.push(insertFileRecord(file, category, note, uploadedAt));
       }
 
-      for (const youtubeUrl of youtubeUrls) {
-        const youtubeFile = await downloadYoutubeVideo(youtubeUrl);
-        downloaded.push(youtubeFile);
-        saved.push(insertFileRecord(youtubeFile, "videos", note, uploadedAt));
+      if (youtubeUrl) {
+        if (!isYoutubeUrl(youtubeUrl)) {
+          res.status(400).json({ error: "Informe um link valido do YouTube." });
+          return;
+        }
+
+        const title = youtubeTitle || "Video do YouTube";
+        const result = db.run(`
+          INSERT INTO youtube_links (title, url, note, created_at)
+          VALUES (?, ?, ?, ?)
+        `, [title, youtubeUrl, note, uploadedAt]);
+        saved.push({
+          id: result.lastInsertRowid,
+          originalName: title,
+          category: "videos",
+          size: 0,
+          source: "youtube"
+        });
       }
 
       res.json({
-        message: youtubeUrls.length ? `${youtubeUrls.length} video(s) do YouTube salvo(s) em MP4.` : "Envio concluido com sucesso.",
+        message: youtubeUrl ? "Link do YouTube enviado para o admin baixar." : "Envio concluido com sucesso.",
         files: saved
       });
     } catch (conversionError) {
-      for (const file of [...(req.files || []), ...downloaded]) {
+      for (const file of req.files || []) {
         if (fs.existsSync(file.path)) {
           fs.unlinkSync(file.path);
         }
@@ -326,6 +355,7 @@ app.get("/api/admin/session", (req, res) => {
 
 app.get("/api/admin/files", requireAdmin, (req, res) => {
   const rows = db.all("SELECT * FROM files ORDER BY uploaded_at DESC, id DESC");
+  const youtubeRows = db.all("SELECT * FROM youtube_links ORDER BY created_at DESC, id DESC");
   const grouped = Object.keys(categories).reduce((acc, key) => {
     acc[key] = [];
     return acc;
@@ -334,6 +364,10 @@ app.get("/api/admin/files", requireAdmin, (req, res) => {
   rows.forEach((row) => {
     if (!grouped[row.category]) grouped.outros.push(publicFile(row));
     else grouped[row.category].push(publicFile(row));
+  });
+
+  youtubeRows.forEach((row) => {
+    grouped.videos.push(publicYoutubeLink(row));
   });
 
   res.json({
@@ -366,6 +400,34 @@ app.get("/api/admin/files/:id/download", requireAdmin, async (req, res) => {
   res.download(filePath, downloadName(preparedFile));
 });
 
+app.post("/api/admin/youtube/:id/download", requireAdmin, async (req, res) => {
+  const link = db.get("SELECT * FROM youtube_links WHERE id = ?", [req.params.id]);
+  if (!link) {
+    res.status(404).json({ error: "Link do YouTube nao encontrado." });
+    return;
+  }
+
+  try {
+    const youtubeFile = await downloadYoutubeVideo(link.url, link.title);
+    const saved = insertFileRecord(youtubeFile, "videos", link.note || "", new Date().toISOString());
+    db.run("DELETE FROM youtube_links WHERE id = ?", [link.id]);
+    res.json({ ok: true, file: saved, message: "Video baixado em MP4 no computador do admin." });
+  } catch (error) {
+    res.status(500).json({ error: `Nao foi possivel baixar o video. ${error.message}` });
+  }
+});
+
+app.delete("/api/admin/youtube/:id", requireAdmin, (req, res) => {
+  const link = db.get("SELECT * FROM youtube_links WHERE id = ?", [req.params.id]);
+  if (!link) {
+    res.status(404).json({ error: "Link do YouTube nao encontrado." });
+    return;
+  }
+
+  db.run("DELETE FROM youtube_links WHERE id = ?", [link.id]);
+  res.json({ ok: true });
+});
+
 app.delete("/api/admin/files/:id", requireAdmin, (req, res) => {
   const file = getFileOr404(req.params.id, res);
   if (!file) return;
@@ -389,6 +451,7 @@ app.delete("/api/admin/files", requireAdmin, (req, res) => {
   });
 
   db.run("DELETE FROM files");
+  db.run("DELETE FROM youtube_links");
   res.json({ ok: true, deleted: files.length });
 });
 

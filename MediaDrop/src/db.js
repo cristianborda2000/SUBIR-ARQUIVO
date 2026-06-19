@@ -91,6 +91,14 @@ async function initDb() {
       password_hash TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS youtube_links (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      url TEXT NOT NULL,
+      note TEXT,
+      created_at TEXT NOT NULL
+    );
   `);
   ensureAdmin();
 

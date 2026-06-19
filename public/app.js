@@ -5,7 +5,8 @@ const uploadForm = document.querySelector("#uploadForm");
 const progress = document.querySelector("#progressBar");
 const statusBox = document.querySelector("#status");
 const submitButton = document.querySelector("#submitButton");
-const youtubeUrls = document.querySelector("#youtubeUrls");
+const youtubeUrl = document.querySelector("#youtubeUrl");
+const youtubeTitle = document.querySelector("#youtubeTitle");
 
 let currentFiles = [];
 let displayNames = [];
@@ -55,7 +56,7 @@ function updateFiles(files) {
 }
 
 function hasYoutubeLink() {
-  return youtubeUrls.value.trim().length > 0;
+  return youtubeUrl.value.trim().length > 0;
 }
 
 function updateSubmitState() {
@@ -84,7 +85,7 @@ fileInput.addEventListener("change", () => {
   updateFiles(fileInput.files);
 });
 
-youtubeUrls.addEventListener("input", updateSubmitState);
+youtubeUrl.addEventListener("input", updateSubmitState);
 
 uploadForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -93,7 +94,8 @@ uploadForm.addEventListener("submit", (event) => {
   const formData = new FormData();
   currentFiles.forEach((file) => formData.append("files", file));
   formData.append("displayNames", JSON.stringify(displayNames));
-  formData.append("youtubeUrls", youtubeUrls.value.trim());
+  formData.append("youtubeUrl", youtubeUrl.value.trim());
+  formData.append("youtubeTitle", youtubeTitle.value.trim());
   formData.append("note", document.querySelector("#note").value);
 
   const xhr = new XMLHttpRequest();
@@ -102,7 +104,7 @@ uploadForm.addEventListener("submit", (event) => {
   progress.style.width = "0%";
   const hasVideo = currentFiles.some((file) => file.type.startsWith("video/"));
   const hasYoutube = hasYoutubeLink();
-  setStatus(hasYoutube ? "Baixando links do YouTube e salvando em MP4..." : hasVideo ? "Enviando e convertendo videos para MP4..." : "Enviando arquivos...", "");
+  setStatus(hasYoutube ? "Registrando link do YouTube para o admin..." : hasVideo ? "Enviando e convertendo videos para MP4..." : "Enviando arquivos...", "");
 
   xhr.upload.addEventListener("progress", (progressEvent) => {
     if (!progressEvent.lengthComputable) return;
