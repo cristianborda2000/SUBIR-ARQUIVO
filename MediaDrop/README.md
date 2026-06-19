@@ -174,7 +174,9 @@ Enquanto a conversao acontece, o upload pode demorar um pouco mais em arquivos g
 
 ## Videos do YouTube
 
-Para baixar links do YouTube, instale o `yt-dlp` no PATH do sistema ou coloque o executavel em:
+Para baixar links do YouTube, instale o `yt-dlp` no computador/servidor que esta rodando o MediaDrop. Depois cole um link por linha no campo de YouTube. O sistema aceita ate 10 links por envio e baixa um de cada vez para reduzir travamentos.
+
+Instale o `yt-dlp` no PATH do sistema ou coloque o executavel em:
 
 ```text
 MediaDrop/tools/yt-dlp.exe

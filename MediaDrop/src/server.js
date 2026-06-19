@@ -108,6 +108,15 @@ function parseDisplayNames(value) {
   }
 }
 
+function parseYoutubeUrls(body) {
+  const raw = String(body.youtubeUrls || body.youtubeUrl || "");
+  return raw
+    .split(/\r?\n/)
+    .map((url) => url.trim())
+    .filter(Boolean)
+    .slice(0, 10);
+}
+
 function displayNameForFile(file, displayNames, index) {
   const name = String(displayNames[index] || "").trim();
   return name ? withExtension(name, file.originalname) : file.originalname;
@@ -226,8 +235,7 @@ app.post("/api/upload", (req, res) => {
 
     const note = String(req.body.note || "").trim().slice(0, 1000);
     const displayNames = parseDisplayNames(req.body.displayNames);
-    const youtubeUrl = String(req.body.youtubeUrl || "").trim();
-    const youtubeName = String(req.body.youtubeName || "").trim().slice(0, 120);
+    const youtubeUrls = parseYoutubeUrls(req.body);
     const uploadedAt = new Date().toISOString();
     const saved = [];
     const downloaded = [];
@@ -243,14 +251,14 @@ app.post("/api/upload", (req, res) => {
         saved.push(insertFileRecord(file, category, note, uploadedAt));
       }
 
-      if (youtubeUrl) {
-        const youtubeFile = await downloadYoutubeVideo(youtubeUrl, youtubeName);
+      for (const youtubeUrl of youtubeUrls) {
+        const youtubeFile = await downloadYoutubeVideo(youtubeUrl);
         downloaded.push(youtubeFile);
         saved.push(insertFileRecord(youtubeFile, "videos", note, uploadedAt));
       }
 
       res.json({
-        message: youtubeUrl ? "Envio concluido e video do YouTube salvo em MP4." : "Envio concluido com sucesso.",
+        message: youtubeUrls.length ? `${youtubeUrls.length} video(s) do YouTube salvo(s) em MP4.` : "Envio concluido com sucesso.",
         files: saved
       });
     } catch (conversionError) {
