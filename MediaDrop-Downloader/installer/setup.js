@@ -30,7 +30,8 @@ function createShortcut(name, target, workingDirectory) {
 function readAdminUrl(configPath) {
   try {
     const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-    return config.adminUrl || "https://subir-arquivo.vercel.app/admin";
+    const baseUrl = String(config.mediaDropUrl || config.adminUrl || "https://subir-arquivo.vercel.app").replace(/\/admin\/?$/, "").replace(/\/$/, "");
+    return `${baseUrl}/admin`;
   } catch (error) {
     return "https://subir-arquivo.vercel.app/admin";
   }
