@@ -60,6 +60,7 @@ function textElement(tag, className, text) {
 function tabItems() {
   const items = [{ key: "youtube", label: "YouTube", count: state.youtube.length }];
   state.categories.forEach((category) => {
+    if (category.key === "youtube") return;
     items.push({ key: category.key, label: category.label, count: (state.files[category.key] || []).length });
   });
   return items;
@@ -81,7 +82,8 @@ function renderTabs() {
 }
 
 function currentItems() {
-  return state.active === "youtube" ? state.youtube : (state.files[state.active] || []);
+  if (state.active !== "youtube") return state.files[state.active] || [];
+  return allYoutubeItems();
 }
 
 function isYoutubeItem(item) {

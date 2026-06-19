@@ -112,11 +112,14 @@ function renderFiles() {
     textElement("h2", "", category ? category.label : "Arquivos"),
     textElement("div", "meta", `${files.length} arquivo(s) nesta categoria`)
   );
-  const zipLink = document.createElement("a");
-  zipLink.className = "button secondary";
-  zipLink.href = `/api/admin/download/category/${state.active}`;
-  zipLink.textContent = "Baixar ZIP";
-  head.append(titleWrap, zipLink);
+  head.appendChild(titleWrap);
+  if (state.active !== "youtube") {
+    const zipLink = document.createElement("a");
+    zipLink.className = "button secondary";
+    zipLink.href = `/api/admin/download/category/${state.active}`;
+    zipLink.textContent = "Baixar ZIP";
+    head.appendChild(zipLink);
+  }
   filesContainer.appendChild(head);
 
   if (!files.length) {

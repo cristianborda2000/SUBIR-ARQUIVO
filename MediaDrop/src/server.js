@@ -14,7 +14,6 @@ const { convertToMp4, isMp4File, mp4NameFrom, normalizeVideoFile } = require("./
 const { downloadYoutubeVideo, isYoutubeUrl } = require("./youtube");
 const { deleteYoutubeLink, getYoutubeLink, insertYoutubeLink, listYoutubeLinks } = require("./youtube-links");
 const {
-  deleteAllFiles: deleteSupabaseFileRows,
   deleteFile: deleteSupabaseFileRow,
   deleteObject: deleteSupabaseObject,
   downloadObject: downloadSupabaseObject,
@@ -150,7 +149,7 @@ function publicYoutubeLink(link) {
     source: "youtube",
     originalName: link.title,
     storedName: "",
-    category: "videos",
+    category: "youtube",
     mimeType: "YouTube pendente",
     size: 0,
     note: link.note,
@@ -515,7 +514,7 @@ app.get("/api/admin/files", requireAdmin, async (req, res) => {
   const grouped = Object.keys(categories).reduce((acc, key) => {
     acc[key] = [];
     return acc;
-  }, {});
+  }, { youtube: [] });
 
   rows.forEach((row) => {
     if (!grouped[row.category]) grouped.outros.push(publicFile(row));
@@ -528,14 +527,17 @@ app.get("/api/admin/files", requireAdmin, async (req, res) => {
   });
 
   youtubeRows.forEach((row) => {
-    grouped.videos.push(publicYoutubeLink(row));
+    grouped.youtube.push(publicYoutubeLink(row));
   });
 
   res.json({
-    categories: Object.entries(categories).map(([key, category]) => ({
-      key,
-      label: category.label
-    })),
+    categories: [
+      { key: "youtube", label: "YouTube" },
+      ...Object.entries(categories).map(([key, category]) => ({
+        key,
+        label: category.label
+      }))
+    ],
     files: grouped
   });
 });
@@ -647,8 +649,8 @@ app.delete("/api/admin/files", requireAdmin, async (req, res) => {
   for (const file of supabaseRows) {
     await deleteSupabaseObject(file.storage_path).catch(() => null);
   }
-  if (supabaseRows.length) {
-    await deleteSupabaseFileRows();
+  for (const file of supabaseRows) {
+    await deleteSupabaseFileRow(file.id).catch(() => null);
   }
   for (const link of youtubeRows) {
     await deleteYoutubeLink(db, link.id);

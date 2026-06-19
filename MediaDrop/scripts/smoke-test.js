@@ -96,7 +96,7 @@ async function main() {
       throw new Error("Arquivo de teste nao apareceu na categoria documentos.");
     }
 
-    const youtubeFound = body.files.videos.some((file) => file.source === "youtube" && file.originalName === "YouTube pendente");
+    const youtubeFound = body.files.youtube.some((file) => file.source === "youtube" && file.originalName === "YouTube pendente");
     if (!youtubeFound) {
       throw new Error("Link de YouTube nao apareceu como pendente na categoria videos.");
     }
