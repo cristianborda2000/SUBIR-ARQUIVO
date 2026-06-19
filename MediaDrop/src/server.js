@@ -12,6 +12,7 @@ const { initDb } = require("./db");
 const { categories, getCategory, sanitizeFilename, upload, withExtension } = require("./storage");
 const { convertToMp4, isMp4File, mp4NameFrom, normalizeVideoFile } = require("./video");
 const { downloadYoutubeVideo, isYoutubeUrl } = require("./youtube");
+const { deleteYoutubeLink, getYoutubeLink, insertYoutubeLink, listYoutubeLinks } = require("./youtube-links");
 
 const app = express();
 let db;
@@ -273,12 +274,14 @@ app.post("/api/upload", (req, res) => {
         }
 
         const title = youtubeTitle || "Video do YouTube";
-        const result = db.run(`
-          INSERT INTO youtube_links (title, url, note, created_at)
-          VALUES (?, ?, ?, ?)
-        `, [title, youtubeUrl, note, uploadedAt]);
+        const link = await insertYoutubeLink(db, {
+          title,
+          url: youtubeUrl,
+          note,
+          createdAt: uploadedAt
+        });
         saved.push({
-          id: result.lastInsertRowid,
+          id: link.id,
           originalName: title,
           category: "videos",
           size: 0,
@@ -353,9 +356,9 @@ app.get("/api/admin/session", (req, res) => {
   });
 });
 
-app.get("/api/admin/files", requireAdmin, (req, res) => {
+app.get("/api/admin/files", requireAdmin, async (req, res) => {
   const rows = db.all("SELECT * FROM files ORDER BY uploaded_at DESC, id DESC");
-  const youtubeRows = db.all("SELECT * FROM youtube_links ORDER BY created_at DESC, id DESC");
+  const youtubeRows = await listYoutubeLinks(db);
   const grouped = Object.keys(categories).reduce((acc, key) => {
     acc[key] = [];
     return acc;
@@ -401,7 +404,7 @@ app.get("/api/admin/files/:id/download", requireAdmin, async (req, res) => {
 });
 
 app.post("/api/admin/youtube/:id/download", requireAdmin, async (req, res) => {
-  const link = db.get("SELECT * FROM youtube_links WHERE id = ?", [req.params.id]);
+  const link = await getYoutubeLink(db, req.params.id);
   if (!link) {
     res.status(404).json({ error: "Link do YouTube nao encontrado." });
     return;
@@ -410,21 +413,21 @@ app.post("/api/admin/youtube/:id/download", requireAdmin, async (req, res) => {
   try {
     const youtubeFile = await downloadYoutubeVideo(link.url, link.title);
     const saved = insertFileRecord(youtubeFile, "videos", link.note || "", new Date().toISOString());
-    db.run("DELETE FROM youtube_links WHERE id = ?", [link.id]);
+    await deleteYoutubeLink(db, link.id);
     res.json({ ok: true, file: saved, message: "Video baixado em MP4 no computador do admin." });
   } catch (error) {
     res.status(500).json({ error: `Nao foi possivel baixar o video. ${error.message}` });
   }
 });
 
-app.delete("/api/admin/youtube/:id", requireAdmin, (req, res) => {
-  const link = db.get("SELECT * FROM youtube_links WHERE id = ?", [req.params.id]);
+app.delete("/api/admin/youtube/:id", requireAdmin, async (req, res) => {
+  const link = await getYoutubeLink(db, req.params.id);
   if (!link) {
     res.status(404).json({ error: "Link do YouTube nao encontrado." });
     return;
   }
 
-  db.run("DELETE FROM youtube_links WHERE id = ?", [link.id]);
+  await deleteYoutubeLink(db, link.id);
   res.json({ ok: true });
 });
 
@@ -441,8 +444,9 @@ app.delete("/api/admin/files/:id", requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-app.delete("/api/admin/files", requireAdmin, (req, res) => {
+app.delete("/api/admin/files", requireAdmin, async (req, res) => {
   const files = db.all("SELECT * FROM files");
+  const youtubeRows = await listYoutubeLinks(db);
   files.forEach((file) => {
     const filePath = absoluteFilePath(file);
     if (fs.existsSync(filePath)) {
@@ -451,8 +455,10 @@ app.delete("/api/admin/files", requireAdmin, (req, res) => {
   });
 
   db.run("DELETE FROM files");
-  db.run("DELETE FROM youtube_links");
-  res.json({ ok: true, deleted: files.length });
+  for (const link of youtubeRows) {
+    await deleteYoutubeLink(db, link.id);
+  }
+  res.json({ ok: true, deleted: files.length + youtubeRows.length });
 });
 
 app.get("/api/admin/download/category/:category", requireAdmin, async (req, res) => {
