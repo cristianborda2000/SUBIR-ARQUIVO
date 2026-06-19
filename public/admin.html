@@ -3,15 +3,16 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>MediaDrop - Admin</title>
+    <title>Wichay - Admin</title>
+    <link rel="icon" href="/wichay-icon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
     <main class="shell">
       <header class="topbar">
         <a class="brand" href="/">
-          <span class="brand-mark">MD</span>
-          <span>MediaDrop</span>
+          <span class="brand-mark"><img src="/wichay-icon.svg" alt=""></span>
+          <span>Wichay</span>
         </a>
         <a class="nav-link" href="/">Upload público</a>
       </header>
@@ -39,6 +40,7 @@
           </div>
           <div class="actions">
             <button id="downloadAll" class="button" type="button">Baixar tudo em ZIP</button>
+            <a id="desktopAppLink" class="button secondary" href="/api/admin/desktop-app">Baixar app desktop</a>
             <button id="deleteAll" class="button danger" type="button">Apagar tudo</button>
             <button id="settingsButton" class="icon-button" type="button" aria-label="Configuracoes" title="Configuracoes">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">

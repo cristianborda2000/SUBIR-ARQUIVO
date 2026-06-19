@@ -1,8 +1,8 @@
-# MediaDrop Admin Desktop
+# Wichay Admin Desktop
 
-Aplicativo desktop para administrar o MediaDrop no PC.
+Aplicativo desktop para administrar o Wichay no PC.
 
-Ele abre uma janela propria, conecta no Supabase para ver links do YouTube pendentes, conecta no MediaDrop web com usuario e senha de admin, e baixa tudo para uma pasta do computador.
+Ele abre uma janela propria, conecta no Supabase para ver links do YouTube pendentes, conecta no Wichay web com usuario e senha de admin, e baixa tudo para uma pasta do computador.
 
 ## Rodar em desenvolvimento
 

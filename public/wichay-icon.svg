@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Wichay">
+  <rect width="128" height="128" rx="24" fill="#0F1E3D"/>
+  <path d="M64 14 95 45 84 56 64 36 44 56 33 45 64 14Z" fill="#F4F0E7"/>
+  <path d="M64 28 88 52 79 61 64 46 49 61 40 52 64 28Z" fill="#D4A02A"/>
+  <path d="M64 48 96 94H73L64 80 55 94H32L64 48Z" fill="#C24A3A"/>
+  <path d="M64 63 77 95 64 114 51 95 64 63Z" fill="#D4A02A"/>
+  <path d="M64 83 76 95 64 107 52 95 64 83Z" fill="#F4F0E7"/>
+  <path d="M64 90 69 95 64 100 59 95 64 90Z" fill="#D4A02A"/>
+</svg>

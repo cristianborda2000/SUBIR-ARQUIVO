@@ -24,6 +24,8 @@ let state = {
   config: {},
   warnings: []
 };
+let isRefreshing = false;
+let isBusy = false;
 
 function setStatus(message, type = "") {
   statusBox.textContent = message || "";
@@ -84,6 +86,17 @@ function currentItems() {
 
 function isYoutubeItem(item) {
   return item && (item.source === "youtube" || item.mimeType === "YouTube pendente");
+}
+
+function allYoutubeItems() {
+  const grouped = Object.values(state.files)
+    .flat()
+    .filter((item) => isYoutubeItem(item));
+  const byId = new Map();
+  [...state.youtube, ...grouped].forEach((item) => {
+    byId.set(String(item.id), item);
+  });
+  return Array.from(byId.values());
 }
 
 function warningForActiveTab() {
@@ -147,7 +160,7 @@ function render() {
     download.type = "button";
     download.textContent = "Baixar";
     download.addEventListener("click", () => {
-      if (youtubeItem) downloadYoutube(item.id, download);
+      if (youtubeItem) downloadYoutube(item, download);
       else downloadFile(item, download);
     });
     const remove = document.createElement("button");
@@ -155,7 +168,7 @@ function render() {
     remove.type = "button";
     remove.textContent = "Apagar";
     remove.addEventListener("click", () => {
-      if (youtubeItem) deleteYoutube(item.id);
+      if (youtubeItem) deleteYoutube(item);
       else deleteFile(item.id);
     });
     actions.append(download, remove);
@@ -166,6 +179,7 @@ function render() {
 
 async function action(button, busyText, work) {
   const oldText = button ? button.textContent : "";
+  isBusy = true;
   if (button) {
     button.disabled = true;
     button.textContent = busyText;
@@ -177,6 +191,7 @@ async function action(button, busyText, work) {
   } catch (error) {
     setStatus(error.message, "error");
   } finally {
+    isBusy = false;
     if (button) {
       button.disabled = false;
       button.textContent = oldText;
@@ -185,6 +200,8 @@ async function action(button, busyText, work) {
 }
 
 async function loadState() {
+  if (isRefreshing) return;
+  isRefreshing = true;
   setStatus("Atualizando...");
   try {
     const data = await window.mediaDrop.loadState();
@@ -202,17 +219,35 @@ async function loadState() {
     filesContainer.appendChild(textElement("p", "empty", error.message));
     setStatus(error.message, "error");
     if (/Configure/.test(error.message)) openSettings();
+  } finally {
+    isRefreshing = false;
   }
 }
 
-function downloadYoutube(id, button) {
-  action(button, "Baixando...", () => window.mediaDrop.downloadYoutube(id));
+function downloadYoutube(item, button) {
+  action(button, "Baixando...", () => {
+    if (typeof item === "object") return window.mediaDrop.downloadYoutubeItem(item);
+    return window.mediaDrop.downloadYoutube(item);
+  });
 }
 
 function downloadAllYoutube() {
-  if (!state.youtube.length) return setStatus("Nao ha links pendentes.", "error");
+  const links = allYoutubeItems();
+  if (!links.length) return setStatus("Nao ha links pendentes.", "error");
   if (!confirm("Baixar todos os links do YouTube pendentes?")) return;
-  action(document.querySelector("#downloadYoutubeAllButton"), "Baixando...", () => window.mediaDrop.downloadAllYoutube());
+  action(document.querySelector("#downloadYoutubeAllButton"), "Baixando...", async () => {
+    let downloaded = 0;
+    let errors = 0;
+    for (const link of links) {
+      try {
+        await window.mediaDrop.downloadYoutubeItem(link);
+        downloaded += 1;
+      } catch (_error) {
+        errors += 1;
+      }
+    }
+    return { message: `Concluidos: ${downloaded} | Erros: ${errors}` };
+  });
 }
 
 function downloadFile(file, button) {
@@ -223,9 +258,12 @@ function downloadCategory(category) {
   action(null, "Baixando...", () => window.mediaDrop.downloadCategory(category));
 }
 
-function deleteYoutube(id) {
+function deleteYoutube(item) {
   if (!confirm("Apagar este link pendente?")) return;
-  action(null, "Apagando...", () => window.mediaDrop.deleteYoutube(id));
+  action(null, "Apagando...", () => {
+    if (typeof item === "object") return window.mediaDrop.deleteYoutubeItem(item);
+    return window.mediaDrop.deleteYoutube(item);
+  });
 }
 
 function deleteFile(id) {
@@ -299,3 +337,8 @@ document.querySelector("#openFolderButton").addEventListener("click", () => wind
 document.querySelector("#openWebButton").addEventListener("click", () => window.mediaDrop.openAdminWeb());
 
 loadState();
+setInterval(() => {
+  if (!isBusy && !settingsDialog.open) {
+    loadState();
+  }
+}, 8000);

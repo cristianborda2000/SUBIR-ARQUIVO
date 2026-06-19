@@ -46,9 +46,11 @@ function renderFiles() {
 function setStatus(message, type) {
   statusBox.textContent = message;
   statusBox.className = `status ${type || ""}`;
+  document.body.classList.toggle("upload-success-screen", type === "success");
 }
 
 function updateFiles(files) {
+  document.body.classList.remove("upload-success-screen");
   currentFiles = Array.from(files);
   displayNames = currentFiles.map((file) => file.name);
   renderFiles();
@@ -86,6 +88,7 @@ fileInput.addEventListener("change", () => {
 });
 
 youtubeUrl.addEventListener("input", updateSubmitState);
+youtubeUrl.addEventListener("input", () => document.body.classList.remove("upload-success-screen"));
 
 uploadForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -121,7 +124,7 @@ uploadForm.addEventListener("submit", (event) => {
     }
 
     if (xhr.status >= 200 && xhr.status < 300) {
-      setStatus(response.message || "Envio concluido com sucesso.", "success");
+      setStatus(response.message || "Arquivo enviado com sucesso. O administrador ja pode baixar.", "success");
       uploadForm.reset();
       currentFiles = [];
       displayNames = [];

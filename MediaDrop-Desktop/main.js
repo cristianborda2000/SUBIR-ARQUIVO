@@ -10,7 +10,7 @@ const appRoot = __dirname;
 const resourceRoot = app.isPackaged ? process.resourcesPath : appRoot;
 
 function defaultDownloadFolder() {
-  return path.join(app.getPath("downloads"), "MediaDrop");
+  return path.join(app.getPath("downloads"), "Wichay");
 }
 
 function configPath() {
@@ -287,6 +287,43 @@ async function downloadYoutube(config, id) {
   }
 }
 
+async function downloadYoutubeItem(config, item) {
+  const link = {
+    id: item.id,
+    title: item.title || item.originalName || "Video do YouTube",
+    url: item.url
+  };
+  if (!link.url) {
+    throw new Error("Este link do YouTube nao tem URL para baixar.");
+  }
+
+  await runYtDlp(config, link);
+
+  if (hasSupabaseConfig(config)) {
+    await updateYoutubeLink(config, link.id, {
+      status: "downloaded",
+      downloaded_at: new Date().toISOString(),
+      error: null
+    }).catch(() => null);
+  } else if (hasMediaDropConfig(config)) {
+    await mediaDropDelete(config, `/api/admin/youtube/${encodeURIComponent(link.id)}`);
+  }
+
+  return { ok: true, message: "Video baixado no computador." };
+}
+
+async function mediaDropDelete(config, pathValue) {
+  const cookie = await mediaDropLogin(config);
+  const response = await requestBuffer(`${config.mediaDropUrl}${pathValue}`, {
+    method: "DELETE",
+    headers: { Cookie: cookie }
+  });
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw new Error(response.text() || "Nao foi possivel apagar.");
+  }
+  return response.body.length ? response.json() : { ok: true };
+}
+
 function publicConfig() {
   return safeConfig(readConfig());
 }
@@ -297,7 +334,7 @@ function createWindow() {
     height: 820,
     minWidth: 980,
     minHeight: 680,
-    title: "MediaDrop Admin",
+    title: "Wichay Admin",
     backgroundColor: "#f5f7fb",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -363,6 +400,7 @@ ipcMain.handle("state:load", async () => {
   return { youtube, categories, files, warnings, config: publicConfig() };
 });
 ipcMain.handle("youtube:download", async (_event, id) => downloadYoutube(readConfig(), id));
+ipcMain.handle("youtube:downloadItem", async (_event, item) => downloadYoutubeItem(readConfig(), item));
 ipcMain.handle("youtube:downloadAll", async () => {
   const config = readConfig();
   requireSupabaseConfig(config);
@@ -381,6 +419,19 @@ ipcMain.handle("youtube:downloadAll", async () => {
 });
 ipcMain.handle("youtube:delete", async (_event, id) => {
   await deleteYoutubeLink(readConfig(), id);
+  return { ok: true };
+});
+ipcMain.handle("youtube:deleteItem", async (_event, item) => {
+  const config = readConfig();
+  if (hasSupabaseConfig(config)) {
+    await deleteYoutubeLink(config, item.id).catch(async () => {
+      if (hasMediaDropConfig(config)) {
+        await mediaDropDelete(config, `/api/admin/youtube/${encodeURIComponent(item.id)}`);
+      }
+    });
+    return { ok: true };
+  }
+  await mediaDropDelete(config, `/api/admin/youtube/${encodeURIComponent(item.id)}`);
   return { ok: true };
 });
 ipcMain.handle("file:download", async (_event, file) => {
@@ -404,18 +455,12 @@ ipcMain.handle("files:downloadAll", async () => {
 ipcMain.handle("file:delete", async (_event, id) => {
   const config = readConfig();
   requireMediaDropConfig(config);
-  const cookie = await mediaDropLogin(config);
-  const response = await requestBuffer(`${config.mediaDropUrl}/api/admin/files/${id}`, { method: "DELETE", headers: { Cookie: cookie } });
-  if (response.statusCode < 200 || response.statusCode >= 300) throw new Error(response.text() || "Nao foi possivel apagar.");
-  return { ok: true };
+  return mediaDropDelete(config, `/api/admin/files/${encodeURIComponent(id)}`);
 });
 ipcMain.handle("all:delete", async () => {
   const config = readConfig();
   requireMediaDropConfig(config);
-  const cookie = await mediaDropLogin(config);
-  const response = await requestBuffer(`${config.mediaDropUrl}/api/admin/files`, { method: "DELETE", headers: { Cookie: cookie } });
-  if (response.statusCode < 200 || response.statusCode >= 300) throw new Error(response.text() || "Nao foi possivel apagar tudo.");
-  return response.json();
+  return mediaDropDelete(config, "/api/admin/files");
 });
 
 app.whenReady().then(createWindow);

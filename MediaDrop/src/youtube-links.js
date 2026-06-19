@@ -66,7 +66,7 @@ async function listYoutubeLinks(db) {
   await supabaseRequest(`youtube_links?created_at=lt.${encodeURIComponent(cutoffDate())}`, {
     method: "DELETE"
   });
-  return supabaseRequest(`youtube_links?select=*&created_at=gte.${encodeURIComponent(cutoffDate())}&order=created_at.desc`);
+  return supabaseRequest(`youtube_links?select=*&status=eq.pending&created_at=gte.${encodeURIComponent(cutoffDate())}&order=created_at.desc`);
 }
 
 async function getYoutubeLink(db, id) {

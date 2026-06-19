@@ -4,9 +4,10 @@
   --text: #172033;
   --muted: #667085;
   --line: #d9e1ec;
-  --primary: #2563eb;
-  --primary-dark: #1d4ed8;
-  --accent: #14b8a6;
+  --primary: #0f1e3d;
+  --primary-dark: #091327;
+  --accent: #d4a02a;
+  --terracotta: #c24a3a;
   --danger: #dc2626;
   --warning: #f59e0b;
   --shadow: 0 18px 50px rgba(23, 32, 51, 0.12);
@@ -21,9 +22,19 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(20, 184, 166, 0.15), transparent 30rem),
-    linear-gradient(135deg, #f8fbff 0%, var(--bg) 58%, #eef4ff 100%);
+    radial-gradient(circle at top left, rgba(212, 160, 42, 0.16), transparent 30rem),
+    linear-gradient(135deg, #fffdf8 0%, var(--bg) 58%, #eef4ff 100%);
   color: var(--text);
+  transition: background 180ms ease;
+}
+
+body.upload-success-screen {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 58%, #f0fdf4 100%);
+}
+
+body.upload-success-screen .upload-card {
+  border-color: #86efac;
+  background: rgba(240, 253, 244, 0.95);
 }
 
 a {
@@ -64,9 +75,16 @@ textarea {
   width: 42px;
   height: 42px;
   border-radius: 8px;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
+  background: var(--primary);
   color: white;
   font-weight: 900;
+  overflow: hidden;
+}
+
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .nav-link {
@@ -119,7 +137,7 @@ textarea {
   padding: 28px;
   border: 2px dashed #a8b6ca;
   border-radius: 8px;
-  background: linear-gradient(180deg, rgba(37, 99, 235, 0.06), rgba(20, 184, 166, 0.06));
+  background: linear-gradient(180deg, rgba(212, 160, 42, 0.1), rgba(15, 30, 61, 0.05));
   text-align: center;
   transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
 }
@@ -144,7 +162,7 @@ textarea {
   height: 76px;
   margin: 0 auto 18px;
   border-radius: 8px;
-  background: #e8f0ff;
+  background: #fff7df;
   color: var(--primary);
 }
 
@@ -341,6 +359,10 @@ input:focus {
 
 .status.success {
   color: #047857;
+  padding: 14px;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  background: #dcfce7;
 }
 
 .status.error {

@@ -54,7 +54,7 @@ async function localDownloaderApi(url, options = {}) {
     return body;
   } catch (error) {
     if (error instanceof TypeError) {
-      throw new Error("Abra o aplicativo MediaDrop Downloader no computador e tente novamente.");
+      throw new Error("Abra o aplicativo Wichay Admin no computador e tente novamente.");
     }
     throw error;
   }

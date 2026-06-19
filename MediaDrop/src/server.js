@@ -516,29 +516,22 @@ app.delete("/api/admin/youtube/:id", requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
-app.delete("/api/admin/files/:id", requireAdmin, (req, res) => {
+app.delete("/api/admin/files/:id", requireAdmin, async (req, res) => {
   if (isSupabaseFilesEnabled()) {
-    getSupabaseFile(req.params.id)
-      .then(async (supabaseFile) => {
-        if (!supabaseFile) return null;
+    try {
+      const supabaseFile = await getSupabaseFile(req.params.id);
+      if (supabaseFile) {
         await deleteSupabaseObject(supabaseFile.storage_path);
         await deleteSupabaseFileRow(supabaseFile.id);
         res.json({ ok: true });
-        return true;
-      })
-      .then((handled) => {
-        if (handled) return;
-        deleteLocalFile();
-      })
-      .catch((error) => {
-        res.status(500).json({ error: `Nao foi possivel apagar o arquivo. ${error.message}` });
-      });
-    return;
+        return;
+      }
+    } catch (error) {
+      res.status(500).json({ error: `Nao foi possivel apagar o arquivo. ${error.message}` });
+      return;
+    }
   }
 
-  deleteLocalFile();
-
-  function deleteLocalFile() {
   const file = getFileOr404(req.params.id, res);
   if (!file) return;
 
@@ -549,7 +542,6 @@ app.delete("/api/admin/files/:id", requireAdmin, (req, res) => {
 
   db.run("DELETE FROM files WHERE id = ?", [file.id]);
   res.json({ ok: true });
-  }
 });
 
 app.delete("/api/admin/files", requireAdmin, async (req, res) => {
@@ -600,6 +592,22 @@ app.get("/api/admin/download/all", requireAdmin, async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: `Nao foi possivel preparar os arquivos. ${error.message}` });
   }
+});
+
+app.get("/api/admin/desktop-app", requireAdmin, (req, res) => {
+  const installerCandidates = [
+    path.resolve(config.rootDir, "..", "MediaDrop-Desktop", "dist", "Wichay Admin Setup 1.0.0.exe"),
+    path.resolve(config.rootDir, "..", "MediaDrop-Desktop", "dist", "MediaDrop Admin Setup 1.0.0.exe")
+  ];
+  const installerPath = installerCandidates.find((candidate) => fs.existsSync(candidate));
+  if (!installerPath) {
+    res.status(404).json({
+      error: "Instalador desktop nao encontrado neste servidor. Gere o instalador em MediaDrop-Desktop/dist ou baixe pelo computador onde o projeto foi compilado."
+    });
+    return;
+  }
+
+  res.download(installerPath, "Wichay Admin Setup.exe");
 });
 
 app.get("/admin", (req, res) => {
