@@ -27,6 +27,15 @@ function createShortcut(name, target, workingDirectory) {
   });
 }
 
+function readAdminUrl(configPath) {
+  try {
+    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    return config.adminUrl || "https://subir-arquivo.vercel.app/admin";
+  } catch (error) {
+    return "https://subir-arquivo.vercel.app/admin";
+  }
+}
+
 function main() {
   if (!fs.existsSync(sourceDir)) {
     throw new Error("Payload do instalador nao encontrado.");
@@ -47,12 +56,14 @@ function main() {
 
   createShortcut("MediaDrop Downloader", path.join(installDir, "MediaDrop-Downloader.exe"), installDir);
   createShortcut("MediaDrop Downloader - Config", configPath, installDir);
+  createShortcut("MediaDrop Admin", readAdminUrl(configPath), installDir);
 
   console.log("MediaDrop Downloader instalado com sucesso.");
   console.log(`Pasta: ${installDir}`);
   console.log("");
   console.log("Antes de usar, abra o atalho \"MediaDrop Downloader - Config\" e preencha as chaves do Supabase.");
-  console.log("Depois execute o atalho \"MediaDrop Downloader\".");
+  console.log("Use \"MediaDrop Admin\" para abrir o painel no navegador.");
+  console.log("Use \"MediaDrop Downloader\" para baixar os videos pendentes.");
   console.log("");
   console.log("Pressione Enter para sair.");
   process.stdin.resume();

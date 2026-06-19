@@ -1,6 +1,7 @@
 {
   "supabaseUrl": "https://seu-projeto.supabase.co",
   "supabaseServiceRoleKey": "sua-chave-secret",
+  "adminUrl": "https://subir-arquivo.vercel.app/admin",
   "downloadFolder": "downloads",
   "ttlDays": 7,
   "deleteAfterDownload": false

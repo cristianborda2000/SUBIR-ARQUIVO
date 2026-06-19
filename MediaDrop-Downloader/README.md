@@ -21,3 +21,13 @@ Baixar-Pendentes.bat
 ```
 
 Os videos ficam na pasta `downloads`.
+
+## Atalhos do instalador
+
+O instalador cria tres atalhos:
+
+- `MediaDrop Admin`: abre o painel administrativo no navegador.
+- `MediaDrop Downloader`: abre o baixador local em uma janela de terminal.
+- `MediaDrop Downloader - Config`: abre o arquivo `config.json`.
+
+O baixador local nao e o painel administrativo. Ele apenas busca os links pendentes no Supabase e baixa os videos no computador.
