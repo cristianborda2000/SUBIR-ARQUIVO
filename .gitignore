@@ -6,3 +6,9 @@ MediaDrop-Downloader/installer/payload/
 MediaDrop-Downloader/installer/stage/
 MediaDrop-Downloader/node_modules/
 MediaDrop-Downloader/tools/*.exe
+MediaDrop-Desktop/config.json
+MediaDrop-Desktop/dist/
+MediaDrop-Desktop/node_modules/
+MediaDrop-Desktop/tools/*.exe
+*.log
+*.err.log

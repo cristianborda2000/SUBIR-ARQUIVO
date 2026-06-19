@@ -1,0 +1,10 @@
+{
+  "supabaseUrl": "https://seu-projeto.supabase.co",
+  "supabaseServiceRoleKey": "sua-chave-secret",
+  "mediaDropUrl": "https://subir-arquivo.vercel.app",
+  "adminUser": "admin",
+  "adminPassword": "sua-senha-admin",
+  "downloadFolder": "",
+  "ttlDays": 7,
+  "deleteYoutubeAfterDownload": false
+}

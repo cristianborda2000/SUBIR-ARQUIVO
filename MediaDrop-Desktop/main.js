@@ -1,0 +1,383 @@
+const fs = require("fs");
+const https = require("https");
+const http = require("http");
+const path = require("path");
+const { spawn } = require("child_process");
+const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
+
+const isDev = !app.isPackaged;
+const appRoot = __dirname;
+const resourceRoot = app.isPackaged ? process.resourcesPath : appRoot;
+
+function defaultDownloadFolder() {
+  return path.join(app.getPath("downloads"), "MediaDrop");
+}
+
+function configPath() {
+  return path.join(app.getPath("userData"), "config.json");
+}
+
+function defaultConfig() {
+  return {
+    supabaseUrl: "",
+    supabaseServiceRoleKey: "",
+    mediaDropUrl: "https://subir-arquivo.vercel.app",
+    adminUser: "admin",
+    adminPassword: "",
+    downloadFolder: defaultDownloadFolder(),
+    ttlDays: 7,
+    deleteYoutubeAfterDownload: false
+  };
+}
+
+function readJson(filePath) {
+  if (!fs.existsSync(filePath)) return null;
+  return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+function readConfig() {
+  const localConfig = readJson(configPath());
+  const legacyConfig = readJson(path.join(appRoot, "config.json"));
+  return { ...defaultConfig(), ...(legacyConfig || {}), ...(localConfig || {}) };
+}
+
+function saveConfig(config) {
+  const current = readConfig();
+  const next = {
+    ...current,
+    ...config,
+    supabaseUrl: String(config.supabaseUrl ?? current.supabaseUrl ?? "").trim(),
+    supabaseServiceRoleKey: String(config.supabaseServiceRoleKey ?? current.supabaseServiceRoleKey ?? "").trim(),
+    mediaDropUrl: String(config.mediaDropUrl ?? current.mediaDropUrl ?? "").trim().replace(/\/admin\/?$/, "").replace(/\/$/, ""),
+    adminUser: String(config.adminUser ?? current.adminUser ?? "").trim(),
+    adminPassword: String(config.adminPassword ?? current.adminPassword ?? ""),
+    downloadFolder: String(config.downloadFolder ?? current.downloadFolder ?? defaultDownloadFolder()).trim(),
+    ttlDays: Number(config.ttlDays ?? current.ttlDays ?? 7),
+    deleteYoutubeAfterDownload: Boolean(config.deleteYoutubeAfterDownload)
+  };
+  fs.mkdirSync(path.dirname(configPath()), { recursive: true });
+  fs.writeFileSync(configPath(), JSON.stringify(next, null, 2));
+  return safeConfig(next);
+}
+
+function safeConfig(config) {
+  return {
+    ...config,
+    hasSupabaseKey: Boolean(config.supabaseServiceRoleKey),
+    supabaseServiceRoleKey: config.supabaseServiceRoleKey ? "********" : "",
+    hasAdminPassword: Boolean(config.adminPassword),
+    adminPassword: config.adminPassword ? "********" : ""
+  };
+}
+
+function requireConfig(config) {
+  if (!config.supabaseUrl || !config.supabaseServiceRoleKey) {
+    throw new Error("Configure Supabase URL e Secret Key na engrenagem.");
+  }
+  if (!config.mediaDropUrl || !config.adminUser || !config.adminPassword) {
+    throw new Error("Configure URL do MediaDrop, usuario e senha admin na engrenagem.");
+  }
+}
+
+function sanitizeName(value) {
+  return String(value || "arquivo")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[<>:"/\\|?*\x00-\x1F]+/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120) || "arquivo";
+}
+
+function cutoffDate(ttlDays) {
+  const date = new Date();
+  date.setDate(date.getDate() - Number(ttlDays || 7));
+  return date.toISOString();
+}
+
+function requestBuffer(urlValue, options = {}) {
+  const body = options.body || "";
+  const url = new URL(urlValue);
+  const transport = url.protocol === "https:" ? https : http;
+  const headers = { ...(options.headers || {}) };
+  if (body) headers["Content-Length"] = Buffer.byteLength(body);
+
+  return new Promise((resolve, reject) => {
+    const request = transport.request(url, { method: options.method || "GET", headers }, (response) => {
+      const chunks = [];
+      response.on("data", (chunk) => chunks.push(chunk));
+      response.on("end", () => {
+        const buffer = Buffer.concat(chunks);
+        resolve({
+          statusCode: response.statusCode,
+          headers: response.headers,
+          body: buffer,
+          text: () => buffer.toString("utf8"),
+          json: () => JSON.parse(buffer.toString("utf8") || "{}")
+        });
+      });
+    });
+    request.on("error", reject);
+    if (body) request.write(body);
+    request.end();
+  });
+}
+
+async function supabaseRequest(config, resource, options = {}) {
+  const body = options.body || "";
+  const url = `${config.supabaseUrl.replace(/\/$/, "")}/rest/v1/${resource}`;
+  const response = await requestBuffer(url, {
+    method: options.method || "GET",
+    headers: {
+      apikey: config.supabaseServiceRoleKey,
+      Authorization: `Bearer ${config.supabaseServiceRoleKey}`,
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    },
+    body
+  });
+
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw new Error(response.text() || `Supabase retornou status ${response.statusCode}.`);
+  }
+  if (response.statusCode === 204 || !response.body.length) return null;
+  return response.json();
+}
+
+async function listYoutubeLinks(config) {
+  const query = [
+    "select=*",
+    "status=eq.pending",
+    `created_at=gte.${encodeURIComponent(cutoffDate(config.ttlDays))}`,
+    "order=created_at.desc"
+  ].join("&");
+  return supabaseRequest(config, `youtube_links?${query}`);
+}
+
+async function updateYoutubeLink(config, id, patch) {
+  await supabaseRequest(config, `youtube_links?id=eq.${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify(patch)
+  });
+}
+
+async function deleteYoutubeLink(config, id) {
+  await supabaseRequest(config, `youtube_links?id=eq.${encodeURIComponent(id)}`, {
+    method: "DELETE"
+  });
+}
+
+async function mediaDropLogin(config) {
+  const response = await requestBuffer(`${config.mediaDropUrl}/api/admin/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: config.adminUser, password: config.adminPassword })
+  });
+
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw new Error(response.text() || "Login admin falhou.");
+  }
+
+  const cookie = (response.headers["set-cookie"] || []).map((item) => item.split(";")[0]).join("; ");
+  if (!cookie) throw new Error("Login admin nao retornou cookie de sessao.");
+  return cookie;
+}
+
+async function mediaDropJson(config, pathValue) {
+  const cookie = await mediaDropLogin(config);
+  const response = await requestBuffer(`${config.mediaDropUrl}${pathValue}`, { headers: { Cookie: cookie } });
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw new Error(response.text() || `MediaDrop retornou status ${response.statusCode}.`);
+  }
+  return response.json();
+}
+
+async function mediaDropDownload(config, pathValue, outputName, subfolder) {
+  const cookie = await mediaDropLogin(config);
+  const response = await requestBuffer(`${config.mediaDropUrl}${pathValue}`, { headers: { Cookie: cookie } });
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw new Error(response.text() || `Download retornou status ${response.statusCode}.`);
+  }
+
+  const folder = path.join(config.downloadFolder || defaultDownloadFolder(), subfolder || "arquivos");
+  fs.mkdirSync(folder, { recursive: true });
+  const filePath = path.join(folder, sanitizeName(outputName));
+  fs.writeFileSync(filePath, response.body);
+  return filePath;
+}
+
+function toolPath(exeName) {
+  const candidates = [
+    path.join(resourceRoot, "tools", exeName),
+    path.join(appRoot, "tools", exeName),
+    path.join(appRoot, "..", "MediaDrop", "tools", exeName),
+    path.join(appRoot, "..", "MediaDrop", "node_modules", "ffmpeg-static", exeName)
+  ];
+  return candidates.find((candidate) => fs.existsSync(candidate)) || exeName.replace(/\.exe$/, "");
+}
+
+function runYtDlp(config, link) {
+  return new Promise((resolve, reject) => {
+    const outputFolder = path.join(config.downloadFolder || defaultDownloadFolder(), "youtube");
+    fs.mkdirSync(outputFolder, { recursive: true });
+    const ytDlp = toolPath(process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp");
+    const ffmpeg = toolPath(process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
+    const outputTemplate = path.join(outputFolder, `${sanitizeName(link.title)}-%(id)s.%(ext)s`);
+    const args = [
+      "--no-playlist",
+      "-f", "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best",
+      "--merge-output-format", "mp4",
+      "--recode-video", "mp4",
+      "-o", outputTemplate
+    ];
+    if (fs.existsSync(ffmpeg)) args.push("--ffmpeg-location", path.dirname(ffmpeg));
+    args.push(link.url);
+
+    const child = spawn(ytDlp, args, { windowsHide: false, stdio: ["ignore", "pipe", "pipe"] });
+    let output = "";
+    child.stdout.on("data", (chunk) => { output += chunk.toString(); });
+    child.stderr.on("data", (chunk) => { output += chunk.toString(); });
+    child.on("error", (error) => {
+      if (error.code === "ENOENT") reject(new Error("yt-dlp nao foi encontrado no aplicativo."));
+      else reject(error);
+    });
+    child.on("close", (code) => {
+      if (code === 0) resolve(output);
+      else reject(new Error(output.trim() || `yt-dlp terminou com codigo ${code}.`));
+    });
+  });
+}
+
+async function downloadYoutube(config, id) {
+  const links = await listYoutubeLinks(config);
+  const link = links.find((item) => String(item.id) === String(id));
+  if (!link) throw new Error("Link nao encontrado ou ja baixado.");
+  await updateYoutubeLink(config, id, { status: "downloading", error: null });
+  try {
+    await runYtDlp(config, link);
+    if (config.deleteYoutubeAfterDownload) {
+      await deleteYoutubeLink(config, id);
+    } else {
+      await updateYoutubeLink(config, id, {
+        status: "downloaded",
+        downloaded_at: new Date().toISOString(),
+        error: null
+      });
+    }
+    return { ok: true, message: "Video baixado no computador." };
+  } catch (error) {
+    await updateYoutubeLink(config, id, { status: "error", error: error.message.slice(0, 1000) }).catch(() => null);
+    throw error;
+  }
+}
+
+function publicConfig() {
+  return safeConfig(readConfig());
+}
+
+function createWindow() {
+  const win = new BrowserWindow({
+    width: 1280,
+    height: 820,
+    minWidth: 980,
+    minHeight: 680,
+    title: "MediaDrop Admin",
+    backgroundColor: "#f5f7fb",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+  win.loadFile(path.join(__dirname, "renderer", "index.html"));
+  if (isDev && process.argv.includes("--devtools")) win.webContents.openDevTools();
+}
+
+ipcMain.handle("config:get", () => publicConfig());
+ipcMain.handle("config:save", (_event, config) => saveConfig(config));
+ipcMain.handle("folder:choose", async () => {
+  const result = await dialog.showOpenDialog({ properties: ["openDirectory", "createDirectory"] });
+  return result.canceled ? null : result.filePaths[0];
+});
+ipcMain.handle("folder:open", async () => {
+  const config = readConfig();
+  fs.mkdirSync(config.downloadFolder || defaultDownloadFolder(), { recursive: true });
+  await shell.openPath(config.downloadFolder || defaultDownloadFolder());
+  return { ok: true };
+});
+ipcMain.handle("admin:openWeb", async () => {
+  const config = readConfig();
+  if (config.mediaDropUrl) await shell.openExternal(`${config.mediaDropUrl}/admin`);
+  return { ok: true };
+});
+ipcMain.handle("state:load", async () => {
+  const config = readConfig();
+  requireConfig(config);
+  const youtube = await listYoutubeLinks(config);
+  const data = await mediaDropJson(config, "/api/admin/files");
+  return { youtube, categories: data.categories || [], files: data.files || {}, config: publicConfig() };
+});
+ipcMain.handle("youtube:download", async (_event, id) => downloadYoutube(readConfig(), id));
+ipcMain.handle("youtube:downloadAll", async () => {
+  const config = readConfig();
+  requireConfig(config);
+  const links = await listYoutubeLinks(config);
+  let downloaded = 0;
+  let errors = 0;
+  for (const link of links) {
+    try {
+      await downloadYoutube(config, link.id);
+      downloaded += 1;
+    } catch (_error) {
+      errors += 1;
+    }
+  }
+  return { ok: true, message: `Concluidos: ${downloaded} | Erros: ${errors}` };
+});
+ipcMain.handle("youtube:delete", async (_event, id) => {
+  await deleteYoutubeLink(readConfig(), id);
+  return { ok: true };
+});
+ipcMain.handle("file:download", async (_event, file) => {
+  const config = readConfig();
+  requireConfig(config);
+  const savedPath = await mediaDropDownload(config, `/api/admin/files/${file.id}/download`, file.originalName, file.category || "arquivos");
+  return { ok: true, path: savedPath, message: "Arquivo baixado." };
+});
+ipcMain.handle("category:download", async (_event, category) => {
+  const config = readConfig();
+  requireConfig(config);
+  const savedPath = await mediaDropDownload(config, `/api/admin/download/category/${category}`, `mediadrop-${category}.zip`, "zips");
+  return { ok: true, path: savedPath, message: "ZIP baixado." };
+});
+ipcMain.handle("files:downloadAll", async () => {
+  const config = readConfig();
+  requireConfig(config);
+  const savedPath = await mediaDropDownload(config, "/api/admin/download/all", "mediadrop-todos-arquivos.zip", "zips");
+  return { ok: true, path: savedPath, message: "ZIP com todos os arquivos baixado." };
+});
+ipcMain.handle("file:delete", async (_event, id) => {
+  const config = readConfig();
+  requireConfig(config);
+  const cookie = await mediaDropLogin(config);
+  const response = await requestBuffer(`${config.mediaDropUrl}/api/admin/files/${id}`, { method: "DELETE", headers: { Cookie: cookie } });
+  if (response.statusCode < 200 || response.statusCode >= 300) throw new Error(response.text() || "Nao foi possivel apagar.");
+  return { ok: true };
+});
+ipcMain.handle("all:delete", async () => {
+  const config = readConfig();
+  requireConfig(config);
+  const cookie = await mediaDropLogin(config);
+  const response = await requestBuffer(`${config.mediaDropUrl}/api/admin/files`, { method: "DELETE", headers: { Cookie: cookie } });
+  if (response.statusCode < 200 || response.statusCode >= 300) throw new Error(response.text() || "Nao foi possivel apagar tudo.");
+  return response.json();
+});
+
+app.whenReady().then(createWindow);
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
+});
+app.on("activate", () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+});

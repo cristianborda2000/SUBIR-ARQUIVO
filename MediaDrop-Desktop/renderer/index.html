@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MediaDrop Admin</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <button class="brand link-button" id="refreshButton" type="button" title="Atualizar">
+          <span class="brand-mark">MD</span>
+          <span>MediaDrop Admin</span>
+        </button>
+        <div class="top-actions">
+          <button id="openFolderButton" class="button secondary" type="button">Pasta</button>
+          <button id="openWebButton" class="button secondary" type="button">Admin web</button>
+          <button id="settingsButton" class="icon-button" type="button" aria-label="Configuracoes" title="Configuracoes">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" stroke="currentColor" stroke-width="2"/>
+              <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.08a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.08a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.08a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.1.32.26.62.47.88.32.38.78.6 1.28.6H21a2 2 0 1 1 0 4h-.08a1.7 1.7 0 0 0-1.52.52Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <section class="admin-head">
+        <div class="admin-title">
+          <h1>Arquivos recebidos</h1>
+          <p class="meta">Painel administrativo rodando no computador.</p>
+        </div>
+        <div class="actions">
+          <button id="downloadAllButton" class="button" type="button">Baixar tudo em ZIP</button>
+          <button id="downloadYoutubeAllButton" class="button secondary" type="button">Baixar YouTube</button>
+          <button id="deleteAllButton" class="button danger" type="button">Apagar tudo</button>
+        </div>
+      </section>
+
+      <div id="status" class="status"></div>
+      <nav id="tabs" class="tabs" aria-label="Categorias"></nav>
+      <section id="filesContainer" class="admin-panel"></section>
+
+      <dialog id="settingsDialog">
+        <form id="settingsForm" class="settings-form">
+          <div class="dialog-head">
+            <div>
+              <h2>Configuracoes</h2>
+              <p class="meta">Dados usados apenas neste computador.</p>
+            </div>
+            <button class="icon-button" id="closeSettingsButton" type="button" aria-label="Fechar">X</button>
+          </div>
+          <label for="supabaseUrl">Supabase URL</label>
+          <input id="supabaseUrl" type="url" placeholder="https://seu-projeto.supabase.co">
+          <label for="supabaseServiceRoleKey">Supabase Secret Key</label>
+          <input id="supabaseServiceRoleKey" type="password" placeholder="Cole a secret key">
+          <label for="mediaDropUrl">URL do MediaDrop</label>
+          <input id="mediaDropUrl" type="url" placeholder="https://subir-arquivo.vercel.app">
+          <label for="adminUser">Usuario admin</label>
+          <input id="adminUser" type="text" autocomplete="username">
+          <label for="adminPassword">Senha admin</label>
+          <input id="adminPassword" type="password" autocomplete="current-password">
+          <label for="downloadFolder">Pasta de downloads</label>
+          <div class="folder-row">
+            <input id="downloadFolder" type="text">
+            <button id="chooseFolderButton" class="button secondary" type="button">Escolher</button>
+          </div>
+          <label for="ttlDays">Dias para listar links</label>
+          <input id="ttlDays" type="number" min="1" max="30">
+          <label class="checkbox-row">
+            <input id="deleteYoutubeAfterDownload" type="checkbox">
+            <span>Apagar link do YouTube depois de baixar</span>
+          </label>
+          <div class="actions">
+            <button class="button" type="submit">Salvar</button>
+            <span id="settingsStatus" class="status"></span>
+          </div>
+        </form>
+      </dialog>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
