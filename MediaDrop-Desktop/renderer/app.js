@@ -82,6 +82,10 @@ function currentItems() {
   return state.active === "youtube" ? state.youtube : (state.files[state.active] || []);
 }
 
+function isYoutubeItem(item) {
+  return item && (item.source === "youtube" || item.mimeType === "YouTube pendente");
+}
+
 function warningForActiveTab() {
   if (state.active === "youtube") {
     return state.warnings.find((warning) => warning.includes("YouTube"));
@@ -127,14 +131,15 @@ function render() {
     const row = document.createElement("div");
     row.className = "file-row";
     const nameBlock = document.createElement("div");
-    nameBlock.appendChild(textElement("div", "file-name", state.active === "youtube" ? item.title : item.originalName));
-    nameBlock.appendChild(textElement("div", "file-note", state.active === "youtube" ? item.url : (item.note || item.mimeType || "")));
+    const youtubeItem = state.active === "youtube" || isYoutubeItem(item);
+    nameBlock.appendChild(textElement("div", "file-name", youtubeItem ? (item.title || item.originalName) : item.originalName));
+    nameBlock.appendChild(textElement("div", "file-note", youtubeItem ? (item.url || item.note || "Link do YouTube pendente") : (item.note || item.mimeType || "")));
     const sizeBlock = document.createElement("div");
     sizeBlock.append(
-      textElement("strong", "", state.active === "youtube" ? "Pendente" : formatSize(item.size)),
-      textElement("div", "meta", state.active === "youtube" ? "MP4 local" : (item.mimeType || ""))
+      textElement("strong", "", youtubeItem ? "Pendente" : formatSize(item.size)),
+      textElement("div", "meta", youtubeItem ? "MP4 local" : (item.mimeType || ""))
     );
-    const dateBlock = textElement("div", "meta", formatDate(state.active === "youtube" ? item.created_at : item.uploadedAt));
+    const dateBlock = textElement("div", "meta", formatDate(youtubeItem ? (item.created_at || item.uploadedAt) : item.uploadedAt));
     const actions = document.createElement("div");
     actions.className = "row-actions";
     const download = document.createElement("button");
@@ -142,7 +147,7 @@ function render() {
     download.type = "button";
     download.textContent = "Baixar";
     download.addEventListener("click", () => {
-      if (state.active === "youtube") downloadYoutube(item.id, download);
+      if (youtubeItem) downloadYoutube(item.id, download);
       else downloadFile(item, download);
     });
     const remove = document.createElement("button");
@@ -150,7 +155,7 @@ function render() {
     remove.type = "button";
     remove.textContent = "Apagar";
     remove.addEventListener("click", () => {
-      if (state.active === "youtube") deleteYoutube(item.id);
+      if (youtubeItem) deleteYoutube(item.id);
       else deleteFile(item.id);
     });
     actions.append(download, remove);

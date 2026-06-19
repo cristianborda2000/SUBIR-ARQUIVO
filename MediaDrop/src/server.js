@@ -13,6 +13,17 @@ const { categories, getCategory, sanitizeFilename, upload, withExtension } = req
 const { convertToMp4, isMp4File, mp4NameFrom, normalizeVideoFile } = require("./video");
 const { downloadYoutubeVideo, isYoutubeUrl } = require("./youtube");
 const { deleteYoutubeLink, getYoutubeLink, insertYoutubeLink, listYoutubeLinks } = require("./youtube-links");
+const {
+  deleteAllFiles: deleteSupabaseFileRows,
+  deleteFile: deleteSupabaseFileRow,
+  deleteObject: deleteSupabaseObject,
+  downloadObject: downloadSupabaseObject,
+  getFile: getSupabaseFile,
+  insertFileRecord: insertSupabaseFileRecord,
+  isSupabaseFilesEnabled,
+  listFiles: listSupabaseFiles,
+  uploadObject: uploadSupabaseObject
+} = require("./supabase-files");
 
 const app = express();
 let db;
@@ -76,6 +87,20 @@ function publicFile(file) {
     size: file.size,
     note: file.note,
     uploadedAt: file.uploaded_at
+  };
+}
+
+function publicSupabaseFile(file) {
+  return {
+    id: file.id,
+    originalName: file.original_name,
+    storedName: file.stored_name,
+    category: file.category,
+    mimeType: file.mime_type,
+    size: Number(file.size || 0),
+    note: file.note,
+    uploadedAt: file.uploaded_at,
+    storage: "supabase"
   };
 }
 
@@ -162,6 +187,37 @@ function insertFileRecord(file, category, note, uploadedAt) {
   };
 }
 
+async function insertUploadedFileRecord(file, category, note, uploadedAt) {
+  if (!isSupabaseFilesEnabled()) {
+    return insertFileRecord(file, category, note, uploadedAt);
+  }
+
+  const storagePath = `${category}/${file.filename}`;
+  await uploadSupabaseObject(storagePath, fs.readFileSync(file.path), file.mimetype || "application/octet-stream");
+  const row = await insertSupabaseFileRecord({
+    original_name: file.originalname,
+    stored_name: file.filename,
+    category,
+    mime_type: file.mimetype || "application/octet-stream",
+    size: file.size,
+    note: note || null,
+    storage_path: storagePath,
+    uploaded_at: uploadedAt
+  });
+
+  if (fs.existsSync(file.path)) {
+    fs.unlinkSync(file.path);
+  }
+
+  return {
+    id: row.id,
+    originalName: row.original_name,
+    category: row.category,
+    size: Number(row.size || 0),
+    storage: "supabase"
+  };
+}
+
 async function ensureVideoDownloadIsMp4(file) {
   if (file.category !== "videos") {
     return file;
@@ -218,7 +274,7 @@ async function prepareFilesForDownload(files) {
   return prepared;
 }
 
-function addFilesToZip(res, files, zipName) {
+async function addFilesToZip(res, files, zipName) {
   res.attachment(zipName);
   const archive = archiver("zip", { zlib: { level: 9 } });
 
@@ -229,14 +285,22 @@ function addFilesToZip(res, files, zipName) {
   });
 
   archive.pipe(res);
-  files.forEach((file) => {
+  for (const file of files) {
+    if (file.storage_path) {
+      const buffer = await downloadSupabaseObject(file.storage_path);
+      archive.append(buffer, {
+        name: `${file.category}/${sanitizeFilename(file.original_name)}`
+      });
+      continue;
+    }
+
     const filePath = absoluteFilePath(file);
     if (fs.existsSync(filePath)) {
       archive.file(filePath, {
         name: `${file.category}/${downloadName(file)}`
       });
     }
-  });
+  }
   archive.finalize();
 }
 
@@ -264,7 +328,7 @@ app.post("/api/upload", (req, res) => {
           originalname: displayNameForFile(uploadedFile, displayNames, index)
         };
         const file = category === "videos" ? await normalizeVideoFile(renamedFile) : renamedFile;
-        saved.push(insertFileRecord(file, category, note, uploadedAt));
+        saved.push(await insertUploadedFileRecord(file, category, note, uploadedAt));
       }
 
       if (youtubeUrl) {
@@ -358,6 +422,7 @@ app.get("/api/admin/session", (req, res) => {
 
 app.get("/api/admin/files", requireAdmin, async (req, res) => {
   const rows = db.all("SELECT * FROM files ORDER BY uploaded_at DESC, id DESC");
+  const supabaseRows = isSupabaseFilesEnabled() ? await listSupabaseFiles() : [];
   const youtubeRows = await listYoutubeLinks(db);
   const grouped = Object.keys(categories).reduce((acc, key) => {
     acc[key] = [];
@@ -367,6 +432,11 @@ app.get("/api/admin/files", requireAdmin, async (req, res) => {
   rows.forEach((row) => {
     if (!grouped[row.category]) grouped.outros.push(publicFile(row));
     else grouped[row.category].push(publicFile(row));
+  });
+
+  supabaseRows.forEach((row) => {
+    if (!grouped[row.category]) grouped.outros.push(publicSupabaseFile(row));
+    else grouped[row.category].push(publicSupabaseFile(row));
   });
 
   youtubeRows.forEach((row) => {
@@ -383,6 +453,21 @@ app.get("/api/admin/files", requireAdmin, async (req, res) => {
 });
 
 app.get("/api/admin/files/:id/download", requireAdmin, async (req, res) => {
+  if (isSupabaseFilesEnabled()) {
+    const supabaseFile = await getSupabaseFile(req.params.id);
+    if (supabaseFile) {
+      try {
+        const buffer = await downloadSupabaseObject(supabaseFile.storage_path);
+        res.setHeader("Content-Type", supabaseFile.mime_type || "application/octet-stream");
+        res.attachment(sanitizeFilename(supabaseFile.original_name));
+        res.send(buffer);
+      } catch (error) {
+        res.status(500).json({ error: `Nao foi possivel baixar o arquivo do Supabase. ${error.message}` });
+      }
+      return;
+    }
+  }
+
   const file = getFileOr404(req.params.id, res);
   if (!file) return;
 
@@ -432,6 +517,28 @@ app.delete("/api/admin/youtube/:id", requireAdmin, async (req, res) => {
 });
 
 app.delete("/api/admin/files/:id", requireAdmin, (req, res) => {
+  if (isSupabaseFilesEnabled()) {
+    getSupabaseFile(req.params.id)
+      .then(async (supabaseFile) => {
+        if (!supabaseFile) return null;
+        await deleteSupabaseObject(supabaseFile.storage_path);
+        await deleteSupabaseFileRow(supabaseFile.id);
+        res.json({ ok: true });
+        return true;
+      })
+      .then((handled) => {
+        if (handled) return;
+        deleteLocalFile();
+      })
+      .catch((error) => {
+        res.status(500).json({ error: `Nao foi possivel apagar o arquivo. ${error.message}` });
+      });
+    return;
+  }
+
+  deleteLocalFile();
+
+  function deleteLocalFile() {
   const file = getFileOr404(req.params.id, res);
   if (!file) return;
 
@@ -442,10 +549,12 @@ app.delete("/api/admin/files/:id", requireAdmin, (req, res) => {
 
   db.run("DELETE FROM files WHERE id = ?", [file.id]);
   res.json({ ok: true });
+  }
 });
 
 app.delete("/api/admin/files", requireAdmin, async (req, res) => {
   const files = db.all("SELECT * FROM files");
+  const supabaseRows = isSupabaseFilesEnabled() ? await listSupabaseFiles() : [];
   const youtubeRows = await listYoutubeLinks(db);
   files.forEach((file) => {
     const filePath = absoluteFilePath(file);
@@ -455,10 +564,16 @@ app.delete("/api/admin/files", requireAdmin, async (req, res) => {
   });
 
   db.run("DELETE FROM files");
+  for (const file of supabaseRows) {
+    await deleteSupabaseObject(file.storage_path).catch(() => null);
+  }
+  if (supabaseRows.length) {
+    await deleteSupabaseFileRows();
+  }
   for (const link of youtubeRows) {
     await deleteYoutubeLink(db, link.id);
   }
-  res.json({ ok: true, deleted: files.length + youtubeRows.length });
+  res.json({ ok: true, deleted: files.length + supabaseRows.length + youtubeRows.length });
 });
 
 app.get("/api/admin/download/category/:category", requireAdmin, async (req, res) => {
@@ -470,7 +585,8 @@ app.get("/api/admin/download/category/:category", requireAdmin, async (req, res)
 
   try {
     const files = db.all("SELECT * FROM files WHERE category = ? ORDER BY uploaded_at DESC", [category]);
-    addFilesToZip(res, await prepareFilesForDownload(files), `mediadrop-${category}.zip`);
+    const supabaseRows = isSupabaseFilesEnabled() ? (await listSupabaseFiles()).filter((file) => file.category === category) : [];
+    await addFilesToZip(res, [...await prepareFilesForDownload(files), ...supabaseRows], `mediadrop-${category}.zip`);
   } catch (error) {
     res.status(500).json({ error: `Nao foi possivel preparar os arquivos. ${error.message}` });
   }
@@ -479,7 +595,8 @@ app.get("/api/admin/download/category/:category", requireAdmin, async (req, res)
 app.get("/api/admin/download/all", requireAdmin, async (req, res) => {
   try {
     const files = db.all("SELECT * FROM files ORDER BY category, uploaded_at DESC");
-    addFilesToZip(res, await prepareFilesForDownload(files), "mediadrop-todos-arquivos.zip");
+    const supabaseRows = isSupabaseFilesEnabled() ? await listSupabaseFiles() : [];
+    await addFilesToZip(res, [...await prepareFilesForDownload(files), ...supabaseRows], "mediadrop-todos-arquivos.zip");
   } catch (error) {
     res.status(500).json({ error: `Nao foi possivel preparar os arquivos. ${error.message}` });
   }

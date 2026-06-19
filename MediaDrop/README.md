@@ -102,6 +102,33 @@ Para uso real em producao, troque o armazenamento local por um servico persisten
 
 Baixar videos do YouTube com `yt-dlp` tambem pode falhar na Vercel por limite de duracao da Function e ausencia do executavel no ambiente. Esse recurso e mais adequado para rodar localmente ou em VPS/Render/Railway.
 
+### Supabase Storage para arquivos
+
+Para manter fotos, videos, audios, documentos e outros arquivos salvos quando o site roda na Vercel, crie esta tabela no **Supabase > SQL Editor**:
+
+```sql
+create table if not exists media_files (
+  id uuid primary key default gen_random_uuid(),
+  original_name text not null,
+  stored_name text not null,
+  category text not null,
+  mime_type text not null,
+  size bigint not null,
+  note text,
+  storage_path text not null,
+  uploaded_at timestamptz not null default now()
+);
+```
+
+Depois configure na Vercel:
+
+```env
+SUPABASE_FILES_ENABLED=1
+SUPABASE_STORAGE_BUCKET=mediadrop-files
+```
+
+O bucket privado `mediadrop-files` e criado automaticamente no primeiro upload, usando a `SUPABASE_SERVICE_ROLE_KEY`.
+
 ## Desenvolvimento
 
 Para reiniciar automaticamente ao alterar arquivos:
