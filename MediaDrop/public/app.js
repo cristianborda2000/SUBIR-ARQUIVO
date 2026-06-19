@@ -10,6 +10,7 @@ const youtubeTitle = document.querySelector("#youtubeTitle");
 
 let currentFiles = [];
 let displayNames = [];
+const directUploadThreshold = 3.8 * 1024 * 1024;
 
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -65,6 +66,14 @@ function updateSubmitState() {
   submitButton.disabled = currentFiles.length === 0 && !hasYoutubeLink();
 }
 
+function shouldUseDirectUpload() {
+  return currentFiles.some((file) => file.size > directUploadThreshold);
+}
+
+function isNonMp4Video(file) {
+  return file.type.startsWith("video/") && !/\.mp4$/i.test(file.name) && file.type !== "video/mp4";
+}
+
 function responseErrorMessage(xhr, response) {
   if (response && response.error) {
     return response.error;
@@ -111,59 +120,155 @@ fileInput.addEventListener("change", () => {
 youtubeUrl.addEventListener("input", updateSubmitState);
 youtubeUrl.addEventListener("input", () => document.body.classList.remove("upload-success-screen"));
 
-uploadForm.addEventListener("submit", (event) => {
+async function apiJson(url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    }
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(body.error || `Erro ${response.status}`);
+  }
+  return body;
+}
+
+async function uploadFileDirect(file, index, note) {
+  if (isNonMp4Video(file)) {
+    throw new Error(`O video "${file.name}" e grande demais para converter na Vercel. Envie em MP4 ou use o app/servidor local.`);
+  }
+
+  const signed = await apiJson("/api/upload/direct/sign", {
+    method: "POST",
+    body: JSON.stringify({
+      originalName: file.name,
+      displayName: displayNames[index] || file.name,
+      mimeType: file.type || "application/octet-stream",
+      size: file.size
+    })
+  });
+
+  let uploadResponse = await fetch(signed.signedUrl, {
+    method: "PUT",
+    headers: {
+      "content-type": file.type || "application/octet-stream",
+      "cache-control": "max-age=3600"
+    },
+    body: file
+  });
+
+  if (uploadResponse.status === 405 || uploadResponse.status === 400) {
+    uploadResponse = await fetch(signed.signedUrl, {
+      method: "POST",
+      headers: {
+        "content-type": file.type || "application/octet-stream",
+        "cache-control": "max-age=3600"
+      },
+      body: file
+    });
+  }
+
+  if (!uploadResponse.ok) {
+    const text = await uploadResponse.text();
+    throw new Error(text || `Supabase retornou erro ${uploadResponse.status} no upload.`);
+  }
+
+  return apiJson("/api/upload/direct/complete", {
+    method: "POST",
+    body: JSON.stringify({
+      file: signed.file,
+      note
+    })
+  });
+}
+
+async function submitDirectUpload() {
+  const note = document.querySelector("#note").value;
+  const hasYoutube = hasYoutubeLink();
+  if (hasYoutube) {
+    throw new Error("Envie links do YouTube separados dos arquivos grandes.");
+  }
+
+  const uploaded = [];
+  for (const [index, file] of currentFiles.entries()) {
+    setStatus(`Enviando ${index + 1} de ${currentFiles.length} direto para o Supabase...`, "");
+    const result = await uploadFileDirect(file, index, note);
+    uploaded.push(result.file);
+    progress.style.width = `${Math.round(((index + 1) / currentFiles.length) * 100)}%`;
+  }
+
+  return {
+    message: `${uploaded.length} arquivo(s) enviado(s) com sucesso. O administrador ja pode baixar.`,
+    files: uploaded
+  };
+}
+
+function submitServerUpload() {
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    currentFiles.forEach((file) => formData.append("files", file));
+    formData.append("displayNames", JSON.stringify(displayNames));
+    formData.append("youtubeUrl", youtubeUrl.value.trim());
+    formData.append("youtubeTitle", youtubeTitle.value.trim());
+    formData.append("note", document.querySelector("#note").value);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/upload");
+    const hasVideo = currentFiles.some((file) => file.type.startsWith("video/"));
+    const hasYoutube = hasYoutubeLink();
+    setStatus(hasYoutube ? "Registrando link do YouTube para o admin..." : hasVideo ? "Enviando e convertendo videos para MP4..." : "Enviando arquivos...", "");
+
+    xhr.upload.addEventListener("progress", (progressEvent) => {
+      if (!progressEvent.lengthComputable) return;
+      const percent = Math.round((progressEvent.loaded / progressEvent.total) * 100);
+      progress.style.width = `${percent}%`;
+    });
+
+    xhr.addEventListener("load", () => {
+      let response = {};
+      try {
+        response = JSON.parse(xhr.responseText || "{}");
+      } catch (error) {
+        response = {};
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(response);
+        return;
+      }
+
+      reject(new Error(responseErrorMessage(xhr, response)));
+    });
+
+    xhr.addEventListener("error", () => {
+      reject(new Error("Erro de conexao durante o envio."));
+    });
+
+    xhr.send(formData);
+  });
+}
+
+uploadForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!currentFiles.length && !hasYoutubeLink()) return;
 
-  const formData = new FormData();
-  currentFiles.forEach((file) => formData.append("files", file));
-  formData.append("displayNames", JSON.stringify(displayNames));
-  formData.append("youtubeUrl", youtubeUrl.value.trim());
-  formData.append("youtubeTitle", youtubeTitle.value.trim());
-  formData.append("note", document.querySelector("#note").value);
-
-  const xhr = new XMLHttpRequest();
-  xhr.open("POST", "/api/upload");
   submitButton.disabled = true;
   progress.style.width = "0%";
-  const hasVideo = currentFiles.some((file) => file.type.startsWith("video/"));
-  const hasYoutube = hasYoutubeLink();
-  setStatus(hasYoutube ? "Registrando link do YouTube para o admin..." : hasVideo ? "Enviando e convertendo videos para MP4..." : "Enviando arquivos...", "");
 
-  xhr.upload.addEventListener("progress", (progressEvent) => {
-    if (!progressEvent.lengthComputable) return;
-    const percent = Math.round((progressEvent.loaded / progressEvent.total) * 100);
-    progress.style.width = `${percent}%`;
-  });
-
-  xhr.addEventListener("load", () => {
-    let response = {};
-    try {
-      response = JSON.parse(xhr.responseText || "{}");
-    } catch (error) {
-      response = {};
-    }
-
-    if (xhr.status >= 200 && xhr.status < 300) {
-      setStatus(response.message || "Arquivo enviado com sucesso. O administrador ja pode baixar.", "success");
-      uploadForm.reset();
-      currentFiles = [];
-      displayNames = [];
-      renderFiles();
-      progress.style.width = "100%";
-      return;
-    }
-
-    setStatus(responseErrorMessage(xhr, response), "error");
+  try {
+    const response = shouldUseDirectUpload() ? await submitDirectUpload() : await submitServerUpload();
+    setStatus(response.message || "Arquivo enviado com sucesso. O administrador ja pode baixar.", "success");
+    uploadForm.reset();
+    currentFiles = [];
+    displayNames = [];
+    renderFiles();
+    progress.style.width = "100%";
+  } catch (error) {
+    setStatus(error.message, "error");
     submitButton.disabled = currentFiles.length === 0;
-  });
-
-  xhr.addEventListener("error", () => {
-    setStatus("Erro de conexao durante o envio.", "error");
-    submitButton.disabled = currentFiles.length === 0;
-  });
-
-  xhr.send(formData);
+  }
 });
 
 renderFiles();

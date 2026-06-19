@@ -70,6 +70,31 @@ async function uploadObject(storagePath, buffer, contentType) {
   });
 }
 
+async function createSignedUploadUrl(storagePath) {
+  await ensureBucket();
+  const response = await supabaseApi(`/storage/v1/object/upload/sign/${bucketName}/${storagePath}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-upsert": "false"
+    },
+    body: JSON.stringify({})
+  });
+  const data = await response.json();
+  const rawUrl = data.url || data.signedURL || data.signedUrl;
+  if (!rawUrl) {
+    throw new Error("Supabase nao retornou URL assinada para upload.");
+  }
+  const signedUrl = rawUrl.startsWith("http")
+    ? rawUrl
+    : `${config.supabaseUrl.replace(/\/$/, "")}/storage/v1${rawUrl}`;
+  const token = new URL(signedUrl).searchParams.get("token");
+  if (!token) {
+    throw new Error("Supabase nao retornou token de upload.");
+  }
+  return { signedUrl, token, path: storagePath };
+}
+
 async function downloadObject(storagePath) {
   await ensureBucket();
   const response = await supabaseApi(`/storage/v1/object/${bucketName}/${storagePath}`);
@@ -117,6 +142,7 @@ async function deleteAllFiles() {
 
 module.exports = {
   bucketName,
+  createSignedUploadUrl,
   deleteAllFiles,
   deleteFile,
   deleteObject,

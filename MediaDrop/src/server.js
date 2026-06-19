@@ -9,7 +9,7 @@ const bcrypt = require("bcryptjs");
 const archiver = require("archiver");
 const config = require("./config");
 const { initDb } = require("./db");
-const { categories, getCategory, sanitizeFilename, upload, withExtension } = require("./storage");
+const { categories, getCategory, sanitizeFilename, uniqueFilename, upload, withExtension } = require("./storage");
 const { convertToMp4, isMp4File, mp4NameFrom, normalizeVideoFile } = require("./video");
 const { downloadYoutubeVideo, isYoutubeUrl } = require("./youtube");
 const { deleteYoutubeLink, getYoutubeLink, insertYoutubeLink, listYoutubeLinks } = require("./youtube-links");
@@ -20,6 +20,7 @@ const {
   downloadObject: downloadSupabaseObject,
   getFile: getSupabaseFile,
   insertFileRecord: insertSupabaseFileRecord,
+  createSignedUploadUrl,
   isSupabaseFilesEnabled,
   listFiles: listSupabaseFiles,
   uploadObject: uploadSupabaseObject
@@ -161,6 +162,11 @@ function publicYoutubeLink(link) {
 function displayNameForFile(file, displayNames, index) {
   const name = String(displayNames[index] || "").trim();
   return name ? withExtension(name, file.originalname) : file.originalname;
+}
+
+function displayNameForDirectFile(originalName, displayName) {
+  const name = String(displayName || "").trim();
+  return name ? withExtension(name, originalName) : originalName;
 }
 
 function insertFileRecord(file, category, note, uploadedAt) {
@@ -369,6 +375,88 @@ app.post("/api/upload", (req, res) => {
       });
     }
   });
+});
+
+app.post("/api/upload/direct/sign", async (req, res) => {
+  if (!isSupabaseFilesEnabled()) {
+    res.status(400).json({ error: "Upload direto nao esta ativo. Configure SUPABASE_FILES_ENABLED=1." });
+    return;
+  }
+
+  const originalName = String(req.body.originalName || "").trim();
+  const mimeType = String(req.body.mimeType || "application/octet-stream").trim();
+  const size = Number(req.body.size || 0);
+  const displayName = String(req.body.displayName || "").trim();
+  const category = getCategory({ originalname: originalName, mimetype: mimeType });
+
+  if (!originalName || !size) {
+    res.status(400).json({ error: "Arquivo invalido para upload direto." });
+    return;
+  }
+
+  if (!category) {
+    res.status(400).json({ error: "Tipo de arquivo bloqueado." });
+    return;
+  }
+
+  const finalOriginalName = displayNameForDirectFile(originalName, displayName);
+  const storedName = uniqueFilename(finalOriginalName);
+  const storagePath = `${category}/${storedName}`;
+
+  try {
+    const signed = await createSignedUploadUrl(storagePath);
+    res.json({
+      ...signed,
+      supabaseUrl: config.supabaseUrl,
+      bucket: process.env.SUPABASE_STORAGE_BUCKET || "mediadrop-files",
+      file: {
+        originalName: finalOriginalName,
+        storedName,
+        category,
+        mimeType,
+        size,
+        storagePath
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: `Nao foi possivel preparar upload direto. ${error.message}` });
+  }
+});
+
+app.post("/api/upload/direct/complete", async (req, res) => {
+  if (!isSupabaseFilesEnabled()) {
+    res.status(400).json({ error: "Upload direto nao esta ativo." });
+    return;
+  }
+
+  const file = req.body.file || {};
+  const note = String(req.body.note || "").trim().slice(0, 1000);
+
+  try {
+    const row = await insertSupabaseFileRecord({
+      original_name: String(file.originalName || "arquivo"),
+      stored_name: String(file.storedName || "arquivo"),
+      category: String(file.category || "outros"),
+      mime_type: String(file.mimeType || "application/octet-stream"),
+      size: Number(file.size || 0),
+      note: note || null,
+      storage_path: String(file.storagePath || ""),
+      uploaded_at: new Date().toISOString()
+    });
+
+    res.json({
+      message: "Arquivo enviado com sucesso. O administrador ja pode baixar.",
+      file: {
+        id: row.id,
+        originalName: row.original_name,
+        category: row.category,
+        size: Number(row.size || 0),
+        storage: "supabase"
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: `Upload concluido, mas nao foi possivel registrar o arquivo. ${error.message}` });
+  }
 });
 
 app.post("/api/admin/login", (req, res) => {

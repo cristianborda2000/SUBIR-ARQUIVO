@@ -129,6 +129,8 @@ SUPABASE_STORAGE_BUCKET=mediadrop-files
 
 O bucket privado `mediadrop-files` e criado automaticamente no primeiro upload, usando a `SUPABASE_SERVICE_ROLE_KEY`.
 
+Arquivos acima de aproximadamente `3.8 MB` sao enviados direto do navegador para o Supabase Storage por URL assinada, evitando o limite de `4.5 MB` da Vercel. Videos grandes precisam estar em MP4; videos pequenos em outros formatos continuam podendo passar pelo servidor para conversao.
+
 ## Desenvolvimento
 
 Para reiniciar automaticamente ao alterar arquivos:
