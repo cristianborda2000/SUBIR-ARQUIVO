@@ -91,6 +91,7 @@ function publicFile(file) {
 }
 
 function publicSupabaseFile(file) {
+  const note = file.note || "";
   return {
     id: file.id,
     originalName: file.original_name,
@@ -98,9 +99,10 @@ function publicSupabaseFile(file) {
     category: file.category,
     mimeType: file.mime_type,
     size: Number(file.size || 0),
-    note: file.note,
+    note,
     uploadedAt: file.uploaded_at,
-    storage: "supabase"
+    storage: "supabase",
+    needsConversion: note.includes("[wichay:convert-to-mp4]")
   };
 }
 
@@ -386,6 +388,7 @@ app.post("/api/upload/direct/sign", async (req, res) => {
   const mimeType = String(req.body.mimeType || "application/octet-stream").trim();
   const size = Number(req.body.size || 0);
   const displayName = String(req.body.displayName || "").trim();
+  const needsConversion = Boolean(req.body.needsConversion);
   const category = getCategory({ originalname: originalName, mimetype: mimeType });
 
   if (!originalName || !size) {
@@ -414,7 +417,8 @@ app.post("/api/upload/direct/sign", async (req, res) => {
         category,
         mimeType,
         size,
-        storagePath
+        storagePath,
+        needsConversion
       }
     });
   } catch (error) {
@@ -429,7 +433,8 @@ app.post("/api/upload/direct/complete", async (req, res) => {
   }
 
   const file = req.body.file || {};
-  const note = String(req.body.note || "").trim().slice(0, 1000);
+  const rawNote = String(req.body.note || "").trim().slice(0, 900);
+  const note = file.needsConversion ? `${rawNote ? `${rawNote}\n` : ""}[wichay:convert-to-mp4]` : rawNote;
 
   try {
     const row = await insertSupabaseFileRecord({
@@ -656,6 +661,53 @@ app.delete("/api/admin/files", requireAdmin, async (req, res) => {
     await deleteYoutubeLink(db, link.id);
   }
   res.json({ ok: true, deleted: files.length + supabaseRows.length + youtubeRows.length });
+});
+
+app.post("/api/admin/delete-all", requireAdmin, async (req, res) => {
+  const files = db.all("SELECT * FROM files");
+  const supabaseRows = isSupabaseFilesEnabled() ? await listSupabaseFiles() : [];
+  const youtubeRows = await listYoutubeLinks(db);
+  let deleted = 0;
+  const errors = [];
+
+  for (const file of files) {
+    try {
+      const filePath = absoluteFilePath(file);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      db.run("DELETE FROM files WHERE id = ?", [file.id]);
+      deleted += 1;
+    } catch (error) {
+      errors.push(`${file.original_name}: ${error.message}`);
+    }
+  }
+
+  for (const file of supabaseRows) {
+    try {
+      await deleteSupabaseObject(file.storage_path).catch(() => null);
+      await deleteSupabaseFileRow(file.id);
+      deleted += 1;
+    } catch (error) {
+      errors.push(`${file.original_name}: ${error.message}`);
+    }
+  }
+
+  for (const link of youtubeRows) {
+    try {
+      await deleteYoutubeLink(db, link.id);
+      deleted += 1;
+    } catch (error) {
+      errors.push(`${link.title}: ${error.message}`);
+    }
+  }
+
+  if (errors.length) {
+    res.status(207).json({ ok: false, deleted, errors });
+    return;
+  }
+
+  res.json({ ok: true, deleted });
 });
 
 app.get("/api/admin/download/category/:category", requireAdmin, async (req, res) => {

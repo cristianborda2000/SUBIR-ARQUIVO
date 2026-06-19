@@ -136,17 +136,14 @@ async function apiJson(url, options = {}) {
 }
 
 async function uploadFileDirect(file, index, note) {
-  if (isNonMp4Video(file)) {
-    throw new Error(`O video "${file.name}" e grande demais para converter na Vercel. Envie em MP4 ou use o app/servidor local.`);
-  }
-
   const signed = await apiJson("/api/upload/direct/sign", {
     method: "POST",
     body: JSON.stringify({
       originalName: file.name,
       displayName: displayNames[index] || file.name,
       mimeType: file.type || "application/octet-stream",
-      size: file.size
+      size: file.size,
+      needsConversion: isNonMp4Video(file)
     })
   });
 
@@ -200,7 +197,7 @@ async function submitDirectUpload() {
   }
 
   return {
-    message: `${uploaded.length} arquivo(s) enviado(s) com sucesso. O administrador ja pode baixar.`,
+    message: `${uploaded.length} arquivo(s) enviado(s) com sucesso. Videos MOV/nao-MP4 serao convertidos para MP4 no app desktop.`,
     files: uploaded
   };
 }

@@ -148,7 +148,7 @@ function render() {
     const nameBlock = document.createElement("div");
     const youtubeItem = state.active === "youtube" || isYoutubeItem(item);
     nameBlock.appendChild(textElement("div", "file-name", youtubeItem ? (item.title || item.originalName) : item.originalName));
-    nameBlock.appendChild(textElement("div", "file-note", youtubeItem ? (item.url || item.note || "Link do YouTube pendente") : (item.note || item.mimeType || "")));
+    nameBlock.appendChild(textElement("div", "file-note", youtubeItem ? (item.url || item.note || "Link do YouTube pendente") : (item.needsConversion ? "Sera convertido para MP4 no desktop" : (item.note || item.mimeType || ""))));
     const sizeBlock = document.createElement("div");
     sizeBlock.append(
       textElement("strong", "", youtubeItem ? "Pendente" : formatSize(item.size)),

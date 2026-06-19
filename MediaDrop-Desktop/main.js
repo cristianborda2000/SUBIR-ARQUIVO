@@ -231,6 +231,43 @@ function toolPath(exeName) {
   return candidates.find((candidate) => fs.existsSync(candidate)) || exeName.replace(/\.exe$/, "");
 }
 
+function mp4NameFrom(value) {
+  const parsed = path.parse(sanitizeName(value || "video"));
+  return `${parsed.name || "video"}.mp4`;
+}
+
+function convertLocalVideoToMp4(inputPath, outputPath) {
+  return new Promise((resolve, reject) => {
+    const ffmpeg = toolPath(process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
+    const args = [
+      "-y",
+      "-i", inputPath,
+      "-map", "0:v:0?",
+      "-map", "0:a:0?",
+      "-c:v", "libx264",
+      "-preset", "veryfast",
+      "-crf", "23",
+      "-pix_fmt", "yuv420p",
+      "-c:a", "aac",
+      "-b:a", "160k",
+      "-movflags", "+faststart",
+      outputPath
+    ];
+    const child = spawn(ffmpeg, args, { windowsHide: false, stdio: ["ignore", "pipe", "pipe"] });
+    let output = "";
+    child.stdout.on("data", (chunk) => { output += chunk.toString(); });
+    child.stderr.on("data", (chunk) => { output += chunk.toString(); });
+    child.on("error", (error) => {
+      if (error.code === "ENOENT") reject(new Error("ffmpeg nao foi encontrado no aplicativo."));
+      else reject(error);
+    });
+    child.on("close", (code) => {
+      if (code === 0 && fs.existsSync(outputPath)) resolve(outputPath);
+      else reject(new Error(output.trim() || `FFmpeg terminou com codigo ${code}.`));
+    });
+  });
+}
+
 function runYtDlp(config, link) {
   return new Promise((resolve, reject) => {
     const outputFolder = path.join(config.downloadFolder || defaultDownloadFolder(), "youtube");
@@ -438,6 +475,12 @@ ipcMain.handle("file:download", async (_event, file) => {
   const config = readConfig();
   requireMediaDropConfig(config);
   const savedPath = await mediaDropDownload(config, `/api/admin/files/${file.id}/download`, file.originalName, file.category || "arquivos");
+  if (file.needsConversion || (file.category === "videos" && path.extname(savedPath).toLowerCase() !== ".mp4")) {
+    const outputPath = path.join(path.dirname(savedPath), mp4NameFrom(file.originalName));
+    await convertLocalVideoToMp4(savedPath, outputPath);
+    fs.unlinkSync(savedPath);
+    return { ok: true, path: outputPath, message: "Video baixado e convertido para MP4." };
+  }
   return { ok: true, path: savedPath, message: "Arquivo baixado." };
 });
 ipcMain.handle("category:download", async (_event, category) => {
@@ -460,7 +503,19 @@ ipcMain.handle("file:delete", async (_event, id) => {
 ipcMain.handle("all:delete", async () => {
   const config = readConfig();
   requireMediaDropConfig(config);
-  return mediaDropDelete(config, "/api/admin/files");
+  try {
+    const cookie = await mediaDropLogin(config);
+    const response = await requestBuffer(`${config.mediaDropUrl}/api/admin/delete-all`, {
+      method: "POST",
+      headers: { Cookie: cookie }
+    });
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw new Error(response.text() || "Nao foi possivel apagar tudo.");
+    }
+    return response.body.length ? response.json() : { ok: true };
+  } catch (_error) {
+    return mediaDropDelete(config, "/api/admin/files");
+  }
 });
 
 app.whenReady().then(createWindow);

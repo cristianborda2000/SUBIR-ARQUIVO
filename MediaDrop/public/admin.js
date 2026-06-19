@@ -293,7 +293,7 @@ deleteAll.addEventListener("click", async () => {
 
   deleteAll.disabled = true;
   try {
-    await api("/api/admin/files", { method: "DELETE" });
+    await api("/api/admin/delete-all", { method: "POST" });
     await loadFiles();
   } catch (error) {
     window.alert(error.message);
