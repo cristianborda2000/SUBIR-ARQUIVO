@@ -62,8 +62,8 @@ function main() {
   console.log(`Pasta: ${installDir}`);
   console.log("");
   console.log("Antes de usar, abra o atalho \"MediaDrop Downloader - Config\" e preencha as chaves do Supabase.");
-  console.log("Use \"MediaDrop Admin\" para abrir o painel no navegador.");
-  console.log("Use \"MediaDrop Downloader\" para baixar os videos pendentes.");
+  console.log("Use \"MediaDrop Admin\" para abrir o painel online no navegador.");
+  console.log("Use \"MediaDrop Downloader\" para abrir o painel local de downloads.");
   console.log("");
   console.log("Pressione Enter para sair.");
   process.stdin.resume();

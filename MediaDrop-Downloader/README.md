@@ -1,6 +1,6 @@
 # MediaDrop Downloader
 
-Baixador local dos links do YouTube enviados pelo MediaDrop e salvos no Supabase.
+Painel local para baixar no computador os links do YouTube enviados pelo MediaDrop e salvos no Supabase.
 
 ## Como usar
 
@@ -20,14 +20,14 @@ No Windows, tambem pode dar duplo clique em:
 Baixar-Pendentes.bat
 ```
 
-Os videos ficam na pasta `downloads`.
+Ao abrir, o aplicativo inicia um painel local no navegador com botoes para buscar, baixar e apagar links pendentes. Os videos ficam na pasta `downloads`.
 
 ## Atalhos do instalador
 
 O instalador cria tres atalhos:
 
-- `MediaDrop Admin`: abre o painel administrativo no navegador.
-- `MediaDrop Downloader`: abre o baixador local em uma janela de terminal.
+- `MediaDrop Admin`: abre o painel administrativo online no navegador.
+- `MediaDrop Downloader`: abre o painel local para baixar videos neste computador.
 - `MediaDrop Downloader - Config`: abre o arquivo `config.json`.
 
-O baixador local nao e o painel administrativo. Ele apenas busca os links pendentes no Supabase e baixa os videos no computador.
+O baixador local busca os links pendentes no Supabase e baixa os videos no computador usando `yt-dlp` e `ffmpeg`.
