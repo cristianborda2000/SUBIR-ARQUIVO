@@ -65,6 +65,27 @@ function updateSubmitState() {
   submitButton.disabled = currentFiles.length === 0 && !hasYoutubeLink();
 }
 
+function responseErrorMessage(xhr, response) {
+  if (response && response.error) {
+    return response.error;
+  }
+
+  if (xhr.status === 413) {
+    return "Arquivo grande demais para a Vercel. Teste com imagem pequena ou envie videos grandes pelo servidor/app local.";
+  }
+
+  if (xhr.status === 504) {
+    return "O envio demorou demais para a Vercel. Videos grandes podem passar do limite de tempo.";
+  }
+
+  const text = String(xhr.responseText || "").replace(/\s+/g, " ").trim();
+  if (text) {
+    return `Erro ${xhr.status}: ${text.slice(0, 280)}`;
+  }
+
+  return `Nao foi possivel enviar os arquivos. Codigo ${xhr.status || "desconhecido"}.`;
+}
+
 ["dragenter", "dragover"].forEach((eventName) => {
   dropzone.addEventListener(eventName, (event) => {
     event.preventDefault();
@@ -133,7 +154,7 @@ uploadForm.addEventListener("submit", (event) => {
       return;
     }
 
-    setStatus(response.error || "Nao foi possivel enviar os arquivos.", "error");
+    setStatus(responseErrorMessage(xhr, response), "error");
     submitButton.disabled = currentFiles.length === 0;
   });
 
