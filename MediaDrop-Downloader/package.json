@@ -1,0 +1,19 @@
+{
+  "name": "mediadrop-downloader",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Baixador local de links do YouTube pendentes no MediaDrop.",
+  "bin": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "build": "pkg index.js --targets node18-win-x64 --output dist/MediaDrop-Downloader.exe"
+  },
+  "pkg": {
+    "assets": [
+      "config.example.json"
+    ]
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
+  }
+}

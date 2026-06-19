@@ -1,0 +1,5 @@
+MediaDrop-Downloader/config.json
+MediaDrop-Downloader/downloads/
+MediaDrop-Downloader/dist/
+MediaDrop-Downloader/node_modules/
+MediaDrop-Downloader/tools/*.exe

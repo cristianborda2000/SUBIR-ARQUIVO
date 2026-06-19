@@ -1,0 +1,7 @@
+{
+  "supabaseUrl": "https://seu-projeto.supabase.co",
+  "supabaseServiceRoleKey": "sua-chave-secret",
+  "downloadFolder": "downloads",
+  "ttlDays": 7,
+  "deleteAfterDownload": false
+}
