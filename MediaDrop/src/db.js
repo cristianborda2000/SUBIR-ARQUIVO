@@ -1,4 +1,5 @@
 const fs = require("fs");
+const path = require("path");
 const bcrypt = require("bcryptjs");
 const initSqlJs = require("sql.js");
 const config = require("./config");
@@ -64,7 +65,10 @@ function ensureAdmin() {
 }
 
 async function initDb() {
-  const SQL = await initSqlJs();
+  const wasmPath = path.dirname(require.resolve("sql.js/dist/sql-wasm.wasm"));
+  const SQL = await initSqlJs({
+    locateFile: (file) => path.join(wasmPath, file)
+  });
   const fileBuffer = fs.existsSync(config.dbPath) ? fs.readFileSync(config.dbPath) : null;
   db = fileBuffer ? new SQL.Database(fileBuffer) : new SQL.Database();
 
