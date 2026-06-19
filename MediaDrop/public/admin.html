@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MediaDrop - Admin</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <a class="brand" href="/">
+          <span class="brand-mark">MD</span>
+          <span>MediaDrop</span>
+        </a>
+        <a class="nav-link" href="/">Upload público</a>
+      </header>
+
+      <section id="loginView" class="login-wrap">
+        <form id="loginForm" class="login-card">
+          <h1>Painel admin</h1>
+          <p class="meta">Entre para baixar, organizar e excluir arquivos enviados.</p>
+          <div class="form-grid">
+            <label for="username">Usuario</label>
+            <input id="username" type="text" autocomplete="username" required>
+            <label for="password">Senha</label>
+            <input id="password" type="password" autocomplete="current-password" required>
+            <button class="button" type="submit">Entrar</button>
+            <div id="loginStatus" class="status"></div>
+          </div>
+        </form>
+      </section>
+
+      <section id="adminView" class="admin-layout hidden">
+        <div class="admin-head">
+          <div class="admin-title">
+            <h1>Arquivos recebidos</h1>
+            <p class="meta">Conteudo separado automaticamente por tipo de midia.</p>
+          </div>
+          <div class="actions">
+            <button id="downloadAll" class="button" type="button">Baixar tudo em ZIP</button>
+            <button id="deleteAll" class="button danger" type="button">Apagar tudo</button>
+            <button id="settingsButton" class="icon-button" type="button" aria-label="Configuracoes" title="Configuracoes">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" stroke="currentColor" stroke-width="2"/>
+                <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.08a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.08a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.08a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.1.32.26.62.47.88.32.38.78.6 1.28.6H21a2 2 0 1 1 0 4h-.08a1.7 1.7 0 0 0-1.52.52Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button id="logoutButton" class="button secondary" type="button">Sair</button>
+          </div>
+        </div>
+
+        <nav id="tabs" class="tabs" aria-label="Categorias"></nav>
+        <div id="filesContainer" class="admin-panel"></div>
+
+        <form id="passwordForm" class="admin-panel password-panel hidden">
+          <div class="panel-head">
+            <div>
+              <h2>Senha do admin</h2>
+              <p class="meta">Altere a senha usada para entrar neste painel.</p>
+            </div>
+          </div>
+          <div class="form-grid compact">
+            <label for="currentPassword">Senha atual</label>
+            <input id="currentPassword" type="password" autocomplete="current-password" required>
+            <label for="newPassword">Nova senha</label>
+            <input id="newPassword" type="password" autocomplete="new-password" minlength="6" required>
+            <label for="confirmPassword">Confirmar nova senha</label>
+            <input id="confirmPassword" type="password" autocomplete="new-password" minlength="6" required>
+            <div class="actions">
+              <button class="button secondary" type="submit">Mudar senha</button>
+              <span id="passwordStatus" class="status"></span>
+            </div>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <script src="/admin.js"></script>
+  </body>
+</html>

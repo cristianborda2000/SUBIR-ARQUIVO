@@ -1,0 +1,9 @@
+node_modules/
+.npm-cache/
+.env
+data/
+uploads/
+tools/*.exe
+server.*.log
+server.log
+npm-debug.log*
