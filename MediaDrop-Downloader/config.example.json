@@ -4,6 +4,7 @@
   "mediaDropUrl": "https://subir-arquivo.vercel.app",
   "adminUser": "admin",
   "adminPassword": "sua-senha-admin",
+  "localPort": 37417,
   "downloadFolder": "downloads",
   "ttlDays": 7,
   "deleteAfterDownload": false

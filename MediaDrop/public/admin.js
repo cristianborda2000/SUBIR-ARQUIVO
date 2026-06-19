@@ -10,6 +10,7 @@ const deleteAll = document.querySelector("#deleteAll");
 const settingsButton = document.querySelector("#settingsButton");
 const passwordForm = document.querySelector("#passwordForm");
 const passwordStatus = document.querySelector("#passwordStatus");
+const localDownloaderUrl = "http://127.0.0.1:37417";
 
 let state = {
   categories: [],
@@ -41,6 +42,31 @@ function textElement(tag, className, text) {
 function showAdmin(show) {
   loginView.classList.toggle("hidden", show);
   adminView.classList.toggle("hidden", !show);
+}
+
+async function localDownloaderApi(url, options = {}) {
+  try {
+    const response = await fetch(`${localDownloaderUrl}${url}`, options);
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.error || "Operacao local nao concluida.");
+    }
+    return body;
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error("Abra o aplicativo MediaDrop Downloader no computador e tente novamente.");
+    }
+    throw error;
+  }
+}
+
+async function waitLocalJob(id) {
+  for (;;) {
+    const job = await localDownloaderApi(`/api/job/${encodeURIComponent(id)}`);
+    if (job.status === "done") return job;
+    if (job.status === "error") throw new Error(job.error || "Falha no download local.");
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+  }
 }
 
 async function api(url, options = {}) {
@@ -129,7 +155,7 @@ function renderFiles() {
       download.className = "button small secondary";
       download.type = "button";
       download.dataset.youtubeDownload = file.id;
-      download.textContent = "Baixar YouTube";
+      download.textContent = "Baixar no PC";
     } else {
       download = document.createElement("a");
       download.className = "button small secondary";
@@ -195,19 +221,21 @@ filesContainer.addEventListener("click", async (event) => {
   const youtubeDownload = event.target.closest("[data-youtube-download]");
   if (youtubeDownload) {
     const id = youtubeDownload.getAttribute("data-youtube-download");
-    const ok = window.confirm("Baixar este video do YouTube agora neste computador?");
+    const ok = window.confirm("Baixar este video no aplicativo local deste computador?");
     if (!ok) return;
 
     youtubeDownload.disabled = true;
     youtubeDownload.textContent = "Baixando...";
     try {
-      const response = await api(`/api/admin/youtube/${id}/download`, { method: "POST" });
-      window.alert(response.message || "Video baixado.");
+      await localDownloaderApi("/api/health");
+      const job = await localDownloaderApi(`/api/download/${encodeURIComponent(id)}`, { method: "POST" });
+      const result = await waitLocalJob(job.id);
+      window.alert(result.message || "Video baixado no PC.");
       await loadFiles();
     } catch (error) {
       window.alert(error.message);
       youtubeDownload.disabled = false;
-      youtubeDownload.textContent = "Baixar YouTube";
+      youtubeDownload.textContent = "Baixar no PC";
     }
     return;
   }

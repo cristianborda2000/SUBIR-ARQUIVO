@@ -27,6 +27,7 @@ function readConfig() {
     mediaDropUrl: "",
     adminUser: "",
     adminPassword: "",
+    localPort: 37417,
     ...config
   };
 }
@@ -223,6 +224,9 @@ function sendJson(res, status, data) {
   const body = JSON.stringify(data);
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
     "Content-Length": Buffer.byteLength(body)
   });
   res.end(body);
@@ -631,10 +635,23 @@ function startPanel() {
     try {
       const url = new URL(req.url, "http://127.0.0.1");
 
+      if (req.method === "OPTIONS") {
+        sendJson(res, 204, {});
+        return;
+      }
+
       if (req.method === "GET" && url.pathname === "/") {
         const body = htmlPage();
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.writeHead(200, {
+          "Content-Type": "text/html; charset=utf-8",
+          "Access-Control-Allow-Origin": "*"
+        });
         res.end(body);
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/health") {
+        sendJson(res, 200, { ok: true });
         return;
       }
 
@@ -782,11 +799,19 @@ function startPanel() {
     }
   });
 
-  server.listen(0, "127.0.0.1", () => {
+  server.listen(Number(config.localPort || 37417), "127.0.0.1", () => {
     const address = server.address();
     const url = `http://127.0.0.1:${address.port}`;
     console.log(`MediaDrop Downloader aberto em ${url}`);
     openBrowser(url);
+  });
+
+  server.on("error", (error) => {
+    if (error.code === "EADDRINUSE") {
+      console.error(`A porta local ${config.localPort} ja esta em uso. Feche outro MediaDrop Downloader aberto e tente novamente.`);
+      return;
+    }
+    console.error(error.message);
   });
 }
 
