@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MediaDrop - Envio de arquivos</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark">MD</span>
+          <span>MediaDrop</span>
+        </div>
+        <a class="nav-link" href="/admin">Painel admin</a>
+      </header>
+
+      <section class="hero">
+        <div class="hero-copy">
+          <h1>MediaDrop</h1>
+          <p>Envie fotos, videos, audios, documentos e apresentacoes em poucos segundos. Videos sao salvos em MP4 e tudo fica separado automaticamente para o administrador baixar.</p>
+        </div>
+
+        <form id="uploadForm" class="upload-card">
+          <div id="dropzone" class="dropzone">
+            <input id="fileInput" type="file" multiple>
+            <div>
+              <div class="upload-icon" aria-hidden="true">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 16V4m0 0 5 5m-5-5-5 5M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <h2>Toque para escolher arquivos</h2>
+              <p>Ou arraste arquivos para esta area no computador.</p>
+              <div class="hint">Videos viram MP4. Executaveis e scripts sao bloqueados.</div>
+            </div>
+          </div>
+
+          <ul id="selectedFiles" class="file-list"></ul>
+
+          <div class="youtube-field">
+            <label for="youtubeUrl">Link do YouTube opcional</label>
+            <input id="youtubeUrl" name="youtubeUrl" type="url" placeholder="https://www.youtube.com/watch?v=...">
+            <input id="youtubeName" name="youtubeName" type="text" placeholder="Nome para salvar o video em MP4">
+          </div>
+
+          <div class="note-field">
+            <label for="note">Observacao opcional</label>
+            <textarea id="note" name="note" placeholder="Escreva uma observacao para acompanhar este envio"></textarea>
+          </div>
+
+          <div class="progress" aria-label="Progresso do envio">
+            <span id="progressBar"></span>
+          </div>
+
+          <div class="actions">
+            <button id="submitButton" class="button" type="submit" disabled>Enviar arquivos</button>
+            <span id="status" class="status"></span>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

@@ -5,14 +5,18 @@
       "maxDuration": 60,
       "includeFiles": [
         "MediaDrop/public/**",
-        "MediaDrop/node_modules/sql.js/dist/sql-wasm.wasm"
+        "node_modules/sql.js/dist/sql-wasm.wasm"
       ]
     }
   },
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/api/(.*)",
       "destination": "/api/index.js"
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin.html"
     }
   ]
 }
