@@ -6,7 +6,8 @@
   "bin": "index.js",
   "scripts": {
     "start": "node index.js",
-    "build": "pkg index.js --targets node18-win-x64 --output dist/MediaDrop-Downloader.exe"
+    "build": "pkg index.js --targets node18-win-x64 --output dist/MediaDrop-Downloader.exe",
+    "build:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File installer/build-setup.ps1"
   },
   "pkg": {
     "assets": [
