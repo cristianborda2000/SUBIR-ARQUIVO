@@ -73,6 +73,35 @@ npm start
 - Upload publico: `http://localhost:3000`
 - Painel administrativo: `http://localhost:3000/admin`
 
+## Deploy na Vercel
+
+1. Suba este repositorio no GitHub.
+2. Na Vercel, clique em **Add New > Project** e importe o repositorio.
+3. Em **Root Directory**, selecione:
+
+```text
+MediaDrop
+```
+
+4. Configure as variaveis de ambiente:
+
+```env
+SESSION_SECRET=um-segredo-grande-e-aleatorio
+ADMIN_USER=admin
+ADMIN_PASSWORD=uma-senha-forte
+MAX_FILE_SIZE_MB=50
+```
+
+5. Use as configuracoes padrao e publique.
+
+### Limitacoes na Vercel
+
+Na Vercel, arquivos enviados e o banco SQLite sao salvos em `/tmp`, que e temporario. Isso permite testar o projeto, mas nao garante persistencia dos uploads entre reinicios das Functions.
+
+Para uso real em producao, troque o armazenamento local por um servico persistente, como Vercel Blob/S3, e use um banco gerenciado, como Postgres.
+
+Baixar videos do YouTube com `yt-dlp` tambem pode falhar na Vercel por limite de duracao da Function e ausencia do executavel no ambiente. Esse recurso e mais adequado para rodar localmente ou em VPS/Render/Railway.
+
 ## Desenvolvimento
 
 Para reiniciar automaticamente ao alterar arquivos:

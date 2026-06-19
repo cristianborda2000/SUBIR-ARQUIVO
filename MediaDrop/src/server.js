@@ -15,6 +15,10 @@ const { downloadYoutubeVideo } = require("./youtube");
 
 const app = express();
 let db;
+const dbReady = initDb()
+  .then((database) => {
+    db = database;
+  });
 
 app.use(helmet({
   contentSecurityPolicy: {
@@ -43,6 +47,15 @@ app.use(session({
 }));
 
 app.use(express.static(path.join(config.rootDir, "public")));
+
+app.use(async (req, res, next) => {
+  try {
+    await dbReady;
+    next();
+  } catch (error) {
+    res.status(500).json({ error: `Falha ao iniciar o MediaDrop: ${error.message}` });
+  }
+});
 
 function requireAdmin(req, res, next) {
   if (req.session && req.session.adminId) {
@@ -403,14 +416,17 @@ app.use((req, res) => {
   res.status(404).json({ error: "Rota nao encontrada." });
 });
 
-initDb()
-  .then((database) => {
-    db = database;
-    app.listen(config.port, () => {
-      console.log(`MediaDrop rodando em http://localhost:${config.port}`);
+if (require.main === module) {
+  dbReady
+    .then(() => {
+      app.listen(config.port, () => {
+        console.log(`MediaDrop rodando em http://localhost:${config.port}`);
+      });
+    })
+    .catch((error) => {
+      console.error("Falha ao iniciar o MediaDrop:", error);
+      process.exit(1);
     });
-  })
-  .catch((error) => {
-    console.error("Falha ao iniciar o MediaDrop:", error);
-    process.exit(1);
-  });
+}
+
+module.exports = app;

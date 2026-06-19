@@ -1,8 +1,10 @@
 const path = require("path");
+const os = require("os");
 
 const rootDir = path.resolve(__dirname, "..");
-const uploadDir = path.join(rootDir, "uploads");
-const dataDir = path.join(rootDir, "data");
+const runtimeDir = process.env.VERCEL ? path.join(os.tmpdir(), "mediadrop") : rootDir;
+const uploadDir = path.join(runtimeDir, "uploads");
+const dataDir = path.join(runtimeDir, "data");
 
 module.exports = {
   port: Number(process.env.PORT || 3000),
