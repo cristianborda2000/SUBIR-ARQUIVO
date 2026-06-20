@@ -173,6 +173,9 @@ async function uploadFileDirect(file, index, note) {
   let putError = "";
   if (!uploadResponse.ok) {
     putError = await putResponse.text().catch(() => "");
+    if (uploadResponse.status === 413) {
+      throw new Error("Arquivo grande demais para o limite atual do Supabase Storage. No plano Free, o limite maximo e 50 MB; para enviar arquivos maiores, aumente o plano e o limite de Storage no Supabase.");
+    }
     uploadResponse = await fetch(signed.signedUrl, {
       method: "PUT",
       headers,
@@ -182,6 +185,9 @@ async function uploadFileDirect(file, index, note) {
 
   if (!uploadResponse.ok) {
     const text = await uploadResponse.text().catch(() => "");
+    if (uploadResponse.status === 413) {
+      throw new Error("Arquivo grande demais para o limite atual do Supabase Storage. No plano Free, o limite maximo e 50 MB; para enviar arquivos maiores, aumente o plano e o limite de Storage no Supabase.");
+    }
     const details = [putError, text].filter(Boolean).join(" | ");
     throw new Error(details || `Supabase retornou erro ${uploadResponse.status} no upload.`);
   }
