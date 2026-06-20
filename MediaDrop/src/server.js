@@ -27,6 +27,10 @@ const {
 
 const app = express();
 let db;
+const cspConnectSrc = ["'self'"];
+if (config.supabaseUrl) {
+  cspConnectSrc.push(config.supabaseUrl.replace(/\/$/, ""));
+}
 const dbReady = initDb()
   .then((database) => {
     db = database;
@@ -39,7 +43,7 @@ app.use(helmet({
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:"],
-      connectSrc: ["'self'"]
+      connectSrc: cspConnectSrc
     }
   }
 }));

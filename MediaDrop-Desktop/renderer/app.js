@@ -26,6 +26,7 @@ let state = {
 };
 let isRefreshing = false;
 let isBusy = false;
+const downloadedIds = new Set(JSON.parse(localStorage.getItem("wichayDownloadedIds") || "[]"));
 
 function setStatus(message, type = "") {
   statusBox.textContent = message || "";
@@ -35,6 +36,19 @@ function setStatus(message, type = "") {
 function setSettingsStatus(message, type = "") {
   settingsStatus.textContent = message || "";
   settingsStatus.className = `status ${type}`;
+}
+
+function itemKey(item) {
+  return `${isYoutubeItem(item) ? "youtube" : "file"}:${item.id}`;
+}
+
+function saveDownloadedIds() {
+  localStorage.setItem("wichayDownloadedIds", JSON.stringify(Array.from(downloadedIds)));
+}
+
+function markDownloaded(item) {
+  downloadedIds.add(itemKey(item));
+  saveDownloadedIds();
 }
 
 function formatSize(bytes) {
@@ -101,6 +115,12 @@ function allYoutubeItems() {
   return Array.from(byId.values());
 }
 
+function allFileItems() {
+  return Object.values(state.files)
+    .flat()
+    .filter((item) => !isYoutubeItem(item));
+}
+
 function warningForActiveTab() {
   if (state.active === "youtube") {
     return state.warnings.find((warning) => warning.includes("YouTube"));
@@ -158,9 +178,10 @@ function render() {
     const actions = document.createElement("div");
     actions.className = "row-actions";
     const download = document.createElement("button");
-    download.className = "button small secondary";
+    const wasDownloaded = downloadedIds.has(itemKey(item));
+    download.className = `button small secondary ${wasDownloaded ? "downloaded" : ""}`;
     download.type = "button";
-    download.textContent = "Baixar";
+    download.textContent = wasDownloaded ? "Baixado" : "Baixar";
     download.addEventListener("click", () => {
       if (youtubeItem) downloadYoutube(item, download);
       else downloadFile(item, download);
@@ -190,8 +211,10 @@ async function action(button, busyText, work) {
     const result = await work();
     setStatus(result.message || "Concluido.", "success");
     await loadState();
+    return result;
   } catch (error) {
     setStatus(error.message, "error");
+    return null;
   } finally {
     isBusy = false;
     if (button) {
@@ -204,7 +227,6 @@ async function action(button, busyText, work) {
 async function loadState() {
   if (isRefreshing) return;
   isRefreshing = true;
-  setStatus("Atualizando...");
   try {
     const data = await window.mediaDrop.loadState();
     state.youtube = data.youtube || [];
@@ -214,7 +236,7 @@ async function loadState() {
     state.warnings = data.warnings || [];
     if (!tabItems().find((item) => item.key === state.active)) state.active = "youtube";
     render();
-    setStatus(state.warnings.length ? state.warnings.join(" | ") : "Atualizado.", state.warnings.length ? "" : "success");
+    setStatus(state.warnings.length ? state.warnings.join(" | ") : "", state.warnings.length ? "" : "");
   } catch (error) {
     renderTabs();
     filesContainer.innerHTML = "";
@@ -230,6 +252,43 @@ function downloadYoutube(item, button) {
   action(button, "Baixando...", () => {
     if (typeof item === "object") return window.mediaDrop.downloadYoutubeItem(item);
     return window.mediaDrop.downloadYoutube(item);
+  }).then((result) => {
+    if (!result) return;
+    if (typeof item === "object") markDownloaded(item);
+    render();
+  });
+}
+
+async function downloadOneYoutube(link) {
+  await window.mediaDrop.downloadYoutubeItem(link);
+  markDownloaded(link);
+  render();
+  return true;
+}
+
+async function deleteAllItems() {
+  const files = allFileItems();
+  const youtube = allYoutubeItems();
+  if (!files.length && !youtube.length) return { ok: true, message: "Nao ha itens para apagar." };
+
+  try {
+    return await window.mediaDrop.deleteAllItems({ files, youtube });
+  } catch (_error) {
+    return window.mediaDrop.deleteAll();
+  }
+}
+
+function clearDownloadedForItems(files, youtube) {
+  [...files, ...youtube].forEach((item) => downloadedIds.delete(itemKey(item)));
+  saveDownloadedIds();
+}
+
+function deleteAllFromDesktop() {
+  const files = allFileItems();
+  const youtube = allYoutubeItems();
+  return deleteAllItems().then((result) => {
+    clearDownloadedForItems(files, youtube);
+    return result;
   });
 }
 
@@ -242,7 +301,7 @@ function downloadAllYoutube() {
     let errors = 0;
     for (const link of links) {
       try {
-        await window.mediaDrop.downloadYoutubeItem(link);
+        await downloadOneYoutube(link);
         downloaded += 1;
       } catch (_error) {
         errors += 1;
@@ -253,7 +312,12 @@ function downloadAllYoutube() {
 }
 
 function downloadFile(file, button) {
-  action(button, "Baixando...", () => window.mediaDrop.downloadFile(file));
+  action(button, "Baixando...", () => window.mediaDrop.downloadFile(file))
+    .then((result) => {
+      if (!result) return;
+      markDownloaded(file);
+      render();
+    });
 }
 
 function downloadCategory(category) {
@@ -328,7 +392,7 @@ document.querySelector("#downloadAllButton").addEventListener("click", () => {
 document.querySelector("#deleteAllButton").addEventListener("click", () => {
   const confirmation = prompt("Digite APAGAR para apagar tudo do sistema web.");
   if (confirmation !== "APAGAR") return;
-  action(document.querySelector("#deleteAllButton"), "Apagando...", () => window.mediaDrop.deleteAll());
+  action(document.querySelector("#deleteAllButton"), "Apagando...", deleteAllFromDesktop);
 });
 document.querySelector("#chooseFolderButton").addEventListener("click", async () => {
   const folder = await window.mediaDrop.chooseFolder();

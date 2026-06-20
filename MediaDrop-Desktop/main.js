@@ -517,6 +517,43 @@ ipcMain.handle("all:delete", async () => {
     return mediaDropDelete(config, "/api/admin/files");
   }
 });
+ipcMain.handle("all:deleteItems", async (_event, items = {}) => {
+  const config = readConfig();
+  requireMediaDropConfig(config);
+  const files = Array.isArray(items.files) ? items.files : [];
+  const youtube = Array.isArray(items.youtube) ? items.youtube : [];
+  let deleted = 0;
+  const errors = [];
+
+  for (const file of files) {
+    try {
+      await mediaDropDelete(config, `/api/admin/files/${encodeURIComponent(file.id)}`);
+      deleted += 1;
+    } catch (error) {
+      errors.push(`${file.originalName || file.id}: ${error.message}`);
+    }
+  }
+
+  for (const item of youtube) {
+    try {
+      if (hasSupabaseConfig(config)) {
+        await deleteYoutubeLink(config, item.id).catch(async () => {
+          await mediaDropDelete(config, `/api/admin/youtube/${encodeURIComponent(item.id)}`);
+        });
+      } else {
+        await mediaDropDelete(config, `/api/admin/youtube/${encodeURIComponent(item.id)}`);
+      }
+      deleted += 1;
+    } catch (error) {
+      errors.push(`${item.title || item.originalName || item.id}: ${error.message}`);
+    }
+  }
+
+  if (errors.length) {
+    throw new Error(`Apagados: ${deleted}. Erros: ${errors.slice(0, 3).join(" | ")}`);
+  }
+  return { ok: true, deleted, message: `${deleted} item(ns) apagado(s).` };
+});
 
 app.whenReady().then(createWindow);
 app.on("window-all-closed", () => {

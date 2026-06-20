@@ -45,8 +45,18 @@ function renderFiles() {
 }
 
 function setStatus(message, type) {
-  statusBox.textContent = message;
   statusBox.className = `status ${type || ""}`;
+  statusBox.innerHTML = "";
+  if (type === "success") {
+    const icon = document.createElement("span");
+    icon.className = "success-circle";
+    icon.textContent = "✓";
+    const text = document.createElement("span");
+    text.textContent = message || "Arquivo enviado com sucesso.";
+    statusBox.append(icon, text);
+  } else {
+    statusBox.textContent = message;
+  }
   document.body.classList.toggle("upload-success-screen", type === "success");
 }
 
@@ -147,29 +157,31 @@ async function uploadFileDirect(file, index, note) {
     })
   });
 
-  let uploadResponse = await fetch(signed.signedUrl, {
+  const headers = {
+    "content-type": file.type || "application/octet-stream",
+    "cache-control": "max-age=3600"
+  };
+  const putResponse = await fetch(signed.signedUrl, {
     method: "PUT",
-    headers: {
-      "content-type": file.type || "application/octet-stream",
-      "cache-control": "max-age=3600"
-    },
+    headers,
     body: file
   });
 
-  if (uploadResponse.status === 405 || uploadResponse.status === 400) {
+  let uploadResponse = putResponse;
+  let putError = "";
+  if (!uploadResponse.ok) {
+    putError = await putResponse.text().catch(() => "");
     uploadResponse = await fetch(signed.signedUrl, {
       method: "POST",
-      headers: {
-        "content-type": file.type || "application/octet-stream",
-        "cache-control": "max-age=3600"
-      },
+      headers,
       body: file
     });
   }
 
   if (!uploadResponse.ok) {
-    const text = await uploadResponse.text();
-    throw new Error(text || `Supabase retornou erro ${uploadResponse.status} no upload.`);
+    const text = await uploadResponse.text().catch(() => "");
+    const details = [putError, text].filter(Boolean).join(" | ");
+    throw new Error(details || `Supabase retornou erro ${uploadResponse.status} no upload.`);
   }
 
   return apiJson("/api/upload/direct/complete", {

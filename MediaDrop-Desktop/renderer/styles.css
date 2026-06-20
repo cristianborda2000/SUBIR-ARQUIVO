@@ -98,6 +98,12 @@ h2 { font-size: 1.45rem; }
 .button:hover { background: var(--primary-dark); }
 .button.secondary { border: 1px solid var(--line); background: white; color: var(--text); }
 .button.secondary:hover { background: #f8fafc; }
+.button.downloaded,
+.button.downloaded:hover {
+  border-color: #86efac;
+  background: #dcfce7;
+  color: #047857;
+}
 .button.danger { background: var(--danger); }
 .button.small { min-height: 36px; padding: 0 12px; font-size: 0.9rem; }
 .button:disabled, .icon-button:disabled { opacity: 0.55; cursor: not-allowed; }

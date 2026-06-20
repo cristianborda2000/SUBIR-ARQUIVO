@@ -85,9 +85,10 @@ async function createSignedUploadUrl(storagePath) {
   if (!rawUrl) {
     throw new Error("Supabase nao retornou URL assinada para upload.");
   }
+  const relativePath = rawUrl.startsWith("/") ? rawUrl : `/${rawUrl}`;
   const signedUrl = rawUrl.startsWith("http")
     ? rawUrl
-    : `${config.supabaseUrl.replace(/\/$/, "")}/storage/v1${rawUrl}`;
+    : `${config.supabaseUrl.replace(/\/$/, "")}/storage/v1${relativePath}`;
   const token = new URL(signedUrl).searchParams.get("token");
   if (!token) {
     throw new Error("Supabase nao retornou token de upload.");
