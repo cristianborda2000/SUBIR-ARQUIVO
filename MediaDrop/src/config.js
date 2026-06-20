@@ -13,6 +13,7 @@ module.exports = {
   adminPassword: process.env.ADMIN_PASSWORD || "admin123",
   maxFileSizeMb: Number(process.env.MAX_FILE_SIZE_MB || 200),
   supabaseUrl: process.env.SUPABASE_URL || "",
+  supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
   supabaseFilesEnabled: process.env.SUPABASE_FILES_ENABLED === "1",
   youtubeLinkTtlDays: Number(process.env.YOUTUBE_LINK_TTL_DAYS || 7),

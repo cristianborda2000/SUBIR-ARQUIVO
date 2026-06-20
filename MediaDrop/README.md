@@ -125,6 +125,9 @@ Depois configure na Vercel:
 ```env
 SUPABASE_FILES_ENABLED=1
 SUPABASE_STORAGE_BUCKET=mediadrop-files
+SUPABASE_URL=https://seu-projeto.supabase.co
+SUPABASE_ANON_KEY=sua-chave-anon-publica
+SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role-secreta
 ```
 
 O bucket privado `mediadrop-files` e criado automaticamente no primeiro upload, usando a `SUPABASE_SERVICE_ROLE_KEY`.

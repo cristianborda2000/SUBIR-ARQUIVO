@@ -512,7 +512,15 @@ ipcMain.handle("all:delete", async () => {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw new Error(response.text() || "Nao foi possivel apagar tudo.");
     }
-    return response.body.length ? response.json() : { ok: true };
+    const body = response.body.length ? response.json() : { ok: true };
+    if (body.ok === false) {
+      const errors = Array.isArray(body.errors) ? body.errors.slice(0, 3).join(" | ") : "";
+      throw new Error(errors || "Alguns itens nao foram apagados.");
+    }
+    return {
+      ...body,
+      message: typeof body.deleted === "number" ? `${body.deleted} item(ns) apagado(s).` : "Todos os itens foram apagados."
+    };
   } catch (_error) {
     return mediaDropDelete(config, "/api/admin/files");
   }

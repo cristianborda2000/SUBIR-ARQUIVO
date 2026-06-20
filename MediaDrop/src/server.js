@@ -410,11 +410,20 @@ app.post("/api/upload/direct/sign", async (req, res) => {
   const storagePath = `${category}/${storedName}`;
 
   try {
+    if (!config.supabaseAnonKey) {
+      res.status(500).json({ error: "Configure SUPABASE_ANON_KEY para uploads grandes direto ao Supabase." });
+      return;
+    }
+
     const signed = await createSignedUploadUrl(storagePath);
     res.json({
       ...signed,
       supabaseUrl: config.supabaseUrl,
       bucket: process.env.SUPABASE_STORAGE_BUCKET || "mediadrop-files",
+      uploadHeaders: {
+        apikey: config.supabaseAnonKey,
+        Authorization: `Bearer ${config.supabaseAnonKey}`
+      },
       file: {
         originalName: finalOriginalName,
         storedName,

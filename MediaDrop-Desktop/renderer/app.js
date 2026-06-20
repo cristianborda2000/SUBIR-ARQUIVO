@@ -272,9 +272,9 @@ async function deleteAllItems() {
   if (!files.length && !youtube.length) return { ok: true, message: "Nao ha itens para apagar." };
 
   try {
-    return await window.mediaDrop.deleteAllItems({ files, youtube });
+    return await window.mediaDrop.deleteAll();
   } catch (_error) {
-    return window.mediaDrop.deleteAll();
+    return window.mediaDrop.deleteAllItems({ files, youtube });
   }
 }
 

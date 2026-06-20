@@ -158,8 +158,10 @@ async function uploadFileDirect(file, index, note) {
   });
 
   const headers = {
+    ...(signed.uploadHeaders || {}),
     "content-type": file.type || "application/octet-stream",
-    "cache-control": "max-age=3600"
+    "cache-control": "max-age=3600",
+    "x-upsert": "false"
   };
   const putResponse = await fetch(signed.signedUrl, {
     method: "PUT",
@@ -172,7 +174,7 @@ async function uploadFileDirect(file, index, note) {
   if (!uploadResponse.ok) {
     putError = await putResponse.text().catch(() => "");
     uploadResponse = await fetch(signed.signedUrl, {
-      method: "POST",
+      method: "PUT",
       headers,
       body: file
     });
