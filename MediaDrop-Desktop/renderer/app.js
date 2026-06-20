@@ -272,7 +272,8 @@ async function deleteAllItems() {
 
   try {
     return await window.mediaDrop.deleteAll();
-  } catch (_error) {
+  } catch (error) {
+    if (!files.length && !youtube.length) throw error;
     return window.mediaDrop.deleteAllItems({ files, youtube });
   }
 }

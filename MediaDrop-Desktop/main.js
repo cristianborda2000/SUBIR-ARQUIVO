@@ -361,6 +361,23 @@ async function mediaDropDelete(config, pathValue) {
   return response.body.length ? response.json() : { ok: true };
 }
 
+async function mediaDropPost(config, pathValue, body = {}) {
+  const cookie = await mediaDropLogin(config);
+  const payload = JSON.stringify(body);
+  const response = await requestBuffer(`${config.mediaDropUrl}${pathValue}`, {
+    method: "POST",
+    headers: {
+      Cookie: cookie,
+      "Content-Type": "application/json"
+    },
+    body: payload
+  });
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw new Error(response.text() || "Operacao nao concluida.");
+  }
+  return response.body.length ? response.json() : { ok: true };
+}
+
 function publicConfig() {
   return safeConfig(readConfig());
 }
@@ -503,16 +520,9 @@ ipcMain.handle("file:delete", async (_event, id) => {
 ipcMain.handle("all:delete", async () => {
   const config = readConfig();
   requireMediaDropConfig(config);
+  let primaryError = null;
   try {
-    const cookie = await mediaDropLogin(config);
-    const response = await requestBuffer(`${config.mediaDropUrl}/api/admin/delete-all`, {
-      method: "POST",
-      headers: { Cookie: cookie }
-    });
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw new Error(response.text() || "Nao foi possivel apagar tudo.");
-    }
-    const body = response.body.length ? response.json() : { ok: true };
+    const body = await mediaDropPost(config, "/api/admin/delete-all");
     if (body.ok === false) {
       const errors = Array.isArray(body.errors) ? body.errors.slice(0, 3).join(" | ") : "";
       throw new Error(errors || "Alguns itens nao foram apagados.");
@@ -521,8 +531,18 @@ ipcMain.handle("all:delete", async () => {
       ...body,
       message: typeof body.deleted === "number" ? `${body.deleted} item(ns) apagado(s).` : "Todos os itens foram apagados."
     };
-  } catch (_error) {
-    return mediaDropDelete(config, "/api/admin/files");
+  } catch (error) {
+    primaryError = error;
+  }
+
+  try {
+    const fallback = await mediaDropDelete(config, "/api/admin/files");
+    return {
+      ...fallback,
+      message: typeof fallback.deleted === "number" ? `${fallback.deleted} item(ns) apagado(s).` : "Todos os itens foram apagados."
+    };
+  } catch (fallbackError) {
+    throw new Error(`Nao foi possivel apagar tudo. Web: ${primaryError.message}. Alternativa: ${fallbackError.message}`);
   }
 });
 ipcMain.handle("all:deleteItems", async (_event, items = {}) => {

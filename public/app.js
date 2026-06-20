@@ -12,7 +12,7 @@ let currentFiles = [];
 let displayNames = [];
 const directUploadThreshold = 3.8 * 1024 * 1024;
 const maxPublicFileSize = 50 * 1024 * 1024;
-const maxPublicFileMessage = "Tamanho maximo: 50 MB por arquivo. Para arquivos acima de 50 MB, entrar em contato com sonoplastia.";
+const maxPublicFileMessage = "Este arquivo passa do limite de envio pela web. O tamanho maximo e 50 MB por arquivo. Para fotos, videos, audios ou documentos acima de 50 MB, entrar em contato com a sonoplastia.";
 
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -31,9 +31,10 @@ function renderFiles() {
     const size = document.createElement("strong");
 
     originalName.className = "file-original";
-    originalName.textContent = file.name;
+    originalName.textContent = `Nome original: ${file.name}`;
     nameInput.type = "text";
     nameInput.value = displayNames[index] || file.name;
+    nameInput.placeholder = "Nome para salvar";
     nameInput.setAttribute("aria-label", `Nome para salvar ${file.name}`);
     nameInput.addEventListener("input", () => {
       displayNames[index] = nameInput.value;
@@ -44,6 +45,17 @@ function renderFiles() {
     selectedFiles.appendChild(item);
   });
   updateSubmitState();
+}
+
+function askDisplayNames(files) {
+  const names = [];
+  for (const [index, file] of files.entries()) {
+    const suggestedName = displayNames[index] || file.name;
+    const answer = window.prompt(`Digite o nome para salvar o arquivo:\n${file.name}`, suggestedName);
+    if (answer === null) return null;
+    names.push(String(answer || suggestedName).trim() || file.name);
+  }
+  return names;
 }
 
 function setStatus(message, type) {
@@ -66,13 +78,25 @@ function updateFiles(files) {
   document.body.classList.remove("upload-success-screen");
   currentFiles = Array.from(files);
   displayNames = currentFiles.map((file) => file.name);
+  if (currentFiles.length) {
+    const names = askDisplayNames(currentFiles);
+    if (!names) {
+      currentFiles = [];
+      displayNames = [];
+      fileInput.value = "";
+      renderFiles();
+      setStatus("Selecao cancelada. Escolha os arquivos novamente para enviar.", "");
+      return;
+    }
+    displayNames = names;
+  }
   renderFiles();
   const oversized = currentFiles.filter((file) => file.size > maxPublicFileSize);
   if (oversized.length) {
     setStatus(maxPublicFileMessage, "error");
     return;
   }
-  setStatus(currentFiles.length ? `${currentFiles.length} arquivo(s) pronto(s) para envio. Limite: 50 MB por arquivo.` : "", "");
+  setStatus(currentFiles.length ? `${currentFiles.length} arquivo(s) pronto(s) para envio. Cada arquivo deve ter no maximo 50 MB.` : "", "");
 }
 
 function hasYoutubeLink() {
