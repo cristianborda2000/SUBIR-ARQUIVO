@@ -16,7 +16,5 @@ contextBridge.exposeInMainWorld("mediaDrop", {
   downloadCategory: (category) => ipcRenderer.invoke("category:download", category),
   downloadAllFiles: () => ipcRenderer.invoke("files:downloadAll"),
   deleteFile: (id) => ipcRenderer.invoke("file:delete", id),
-  deleteAll: () => ipcRenderer.invoke("all:delete"),
-  deleteAllItems: (items) => ipcRenderer.invoke("all:deleteItems", items),
   openAdminWeb: () => ipcRenderer.invoke("admin:openWeb")
 });

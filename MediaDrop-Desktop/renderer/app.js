@@ -266,32 +266,6 @@ async function downloadOneYoutube(link) {
   return true;
 }
 
-async function deleteAllItems() {
-  const files = allFileItems();
-  const youtube = allYoutubeItems();
-
-  try {
-    return await window.mediaDrop.deleteAll();
-  } catch (error) {
-    if (!files.length && !youtube.length) throw error;
-    return window.mediaDrop.deleteAllItems({ files, youtube });
-  }
-}
-
-function clearDownloadedForItems(files, youtube) {
-  [...files, ...youtube].forEach((item) => downloadedIds.delete(itemKey(item)));
-  saveDownloadedIds();
-}
-
-function deleteAllFromDesktop() {
-  const files = allFileItems();
-  const youtube = allYoutubeItems();
-  return deleteAllItems().then((result) => {
-    clearDownloadedForItems(files, youtube);
-    return result;
-  });
-}
-
 function downloadAllYoutube() {
   const links = allYoutubeItems();
   if (!links.length) return setStatus("Nao ha links pendentes.", "error");
@@ -389,11 +363,6 @@ document.querySelector("#downloadAllButton").addEventListener("click", () => {
   if (!confirm("Baixar todos os arquivos comuns em ZIP?")) return;
   action(document.querySelector("#downloadAllButton"), "Baixando...", () => window.mediaDrop.downloadAllFiles());
 });
-document.querySelector("#deleteAllButton").addEventListener("click", () => {
-  const confirmation = prompt("Digite APAGAR para apagar todos os arquivos e links do sistema web.");
-  if (confirmation !== "APAGAR") return;
-  action(document.querySelector("#deleteAllButton"), "Apagando...", deleteAllFromDesktop);
-});
 document.querySelector("#chooseFolderButton").addEventListener("click", async () => {
   const folder = await window.mediaDrop.chooseFolder();
   if (folder) fields.downloadFolder.value = folder;
@@ -403,8 +372,14 @@ document.querySelector("#openFolderButton").addEventListener("click", () => wind
 document.querySelector("#openWebButton").addEventListener("click", () => window.mediaDrop.openAdminWeb());
 
 loadState();
+window.addEventListener("focus", () => {
+  if (!isBusy && !settingsDialog.open) loadState();
+});
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && !isBusy && !settingsDialog.open) loadState();
+});
 setInterval(() => {
   if (!isBusy && !settingsDialog.open) {
     loadState();
   }
-}, 8000);
+}, 2000);
