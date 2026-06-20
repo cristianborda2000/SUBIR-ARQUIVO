@@ -269,7 +269,6 @@ async function downloadOneYoutube(link) {
 async function deleteAllItems() {
   const files = allFileItems();
   const youtube = allYoutubeItems();
-  if (!files.length && !youtube.length) return { ok: true, message: "Nao ha itens para apagar." };
 
   try {
     return await window.mediaDrop.deleteAll();
