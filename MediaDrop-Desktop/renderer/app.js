@@ -390,7 +390,7 @@ document.querySelector("#downloadAllButton").addEventListener("click", () => {
   action(document.querySelector("#downloadAllButton"), "Baixando...", () => window.mediaDrop.downloadAllFiles());
 });
 document.querySelector("#deleteAllButton").addEventListener("click", () => {
-  const confirmation = prompt("Digite APAGAR para apagar tudo do sistema web.");
+  const confirmation = prompt("Digite APAGAR para apagar todos os arquivos e links do sistema web.");
   if (confirmation !== "APAGAR") return;
   action(document.querySelector("#deleteAllButton"), "Apagando...", deleteAllFromDesktop);
 });

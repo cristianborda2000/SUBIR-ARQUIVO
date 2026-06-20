@@ -33,8 +33,8 @@ function renderFiles() {
     originalName.className = "file-original";
     originalName.textContent = `Nome original: ${file.name}`;
     nameInput.type = "text";
-    nameInput.value = displayNames[index] || file.name;
-    nameInput.placeholder = "Nome para salvar";
+    nameInput.value = displayNames[index] || "";
+    nameInput.placeholder = "Digite o nome para salvar";
     nameInput.setAttribute("aria-label", `Nome para salvar ${file.name}`);
     nameInput.addEventListener("input", () => {
       displayNames[index] = nameInput.value;
@@ -49,11 +49,10 @@ function renderFiles() {
 
 function askDisplayNames(files) {
   const names = [];
-  for (const [index, file] of files.entries()) {
-    const suggestedName = displayNames[index] || file.name;
-    const answer = window.prompt(`Digite o nome para salvar o arquivo:\n${file.name}`, suggestedName);
+  for (const file of files) {
+    const answer = window.prompt(`Digite o nome para salvar o arquivo:\n${file.name}`, "");
     if (answer === null) return null;
-    names.push(String(answer || suggestedName).trim() || file.name);
+    names.push(String(answer || "").trim());
   }
   return names;
 }
@@ -77,7 +76,7 @@ function setStatus(message, type) {
 function updateFiles(files) {
   document.body.classList.remove("upload-success-screen");
   currentFiles = Array.from(files);
-  displayNames = currentFiles.map((file) => file.name);
+  displayNames = currentFiles.map(() => "");
   if (currentFiles.length) {
     const names = askDisplayNames(currentFiles);
     if (!names) {

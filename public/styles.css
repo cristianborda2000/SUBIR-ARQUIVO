@@ -552,44 +552,43 @@ input:focus {
 
   .hero {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 10px;
   }
 
-  .hero-copy h1 {
-    font-size: 2.55rem;
-    margin-bottom: 10px;
-  }
-
-  .hero-copy p {
-    font-size: 0.98rem;
-    line-height: 1.55;
+  .hero-copy {
+    display: none;
   }
 
   .upload-card,
   .login-card,
   .admin-panel {
-    padding: 12px;
+    padding: 10px;
   }
 
   .dropzone {
-    min-height: 210px;
-    padding: 18px 14px;
+    min-height: 180px;
+    padding: 14px 12px;
     border-width: 2px;
     background: white;
   }
 
   .upload-icon {
-    width: 62px;
-    height: 62px;
-    margin-bottom: 12px;
+    width: 50px;
+    height: 50px;
+    margin-bottom: 10px;
   }
 
   .dropzone h2 {
-    font-size: 1.2rem;
+    font-size: 1.16rem;
   }
 
   .hint {
-    font-size: 0.85rem;
+    font-size: 0.84rem;
+  }
+
+  .upload-limit {
+    padding: 9px 10px;
+    text-align: left;
   }
 
   textarea,
