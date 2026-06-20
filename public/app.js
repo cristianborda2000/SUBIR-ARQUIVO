@@ -11,6 +11,8 @@ const youtubeTitle = document.querySelector("#youtubeTitle");
 let currentFiles = [];
 let displayNames = [];
 const directUploadThreshold = 3.8 * 1024 * 1024;
+const maxPublicFileSize = 50 * 1024 * 1024;
+const maxPublicFileMessage = "Tamanho maximo: 50 MB por arquivo. Para arquivos acima de 50 MB, entrar em contato com sonoplastia.";
 
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -65,7 +67,12 @@ function updateFiles(files) {
   currentFiles = Array.from(files);
   displayNames = currentFiles.map((file) => file.name);
   renderFiles();
-  setStatus(currentFiles.length ? `${currentFiles.length} arquivo(s) pronto(s) para envio.` : "", "");
+  const oversized = currentFiles.filter((file) => file.size > maxPublicFileSize);
+  if (oversized.length) {
+    setStatus(maxPublicFileMessage, "error");
+    return;
+  }
+  setStatus(currentFiles.length ? `${currentFiles.length} arquivo(s) pronto(s) para envio. Limite: 50 MB por arquivo.` : "", "");
 }
 
 function hasYoutubeLink() {
@@ -73,7 +80,8 @@ function hasYoutubeLink() {
 }
 
 function updateSubmitState() {
-  submitButton.disabled = currentFiles.length === 0 && !hasYoutubeLink();
+  const hasOversizedFile = currentFiles.some((file) => file.size > maxPublicFileSize);
+  submitButton.disabled = hasOversizedFile || (currentFiles.length === 0 && !hasYoutubeLink());
 }
 
 function shouldUseDirectUpload() {
@@ -270,6 +278,10 @@ function submitServerUpload() {
 uploadForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!currentFiles.length && !hasYoutubeLink()) return;
+  if (currentFiles.some((file) => file.size > maxPublicFileSize)) {
+    setStatus(maxPublicFileMessage, "error");
+    return;
+  }
 
   submitButton.disabled = true;
   progress.style.width = "0%";
